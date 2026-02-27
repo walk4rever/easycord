@@ -1,0 +1,242 @@
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600&display=swap');
+
+:root {
+  color-scheme: dark;
+  --bg: #0e1015;
+  --panel: #151922;
+  --panel-border: rgba(255, 255, 255, 0.08);
+  --text: #f5f6f8;
+  --text-muted: rgba(245, 246, 248, 0.62);
+  --accent: #7ee1c4;
+  --accent-strong: #b2f3dd;
+  --danger: #ff6363;
+  --warning: #ffb56b;
+  --success: #6ee7b7;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Sora', system-ui, sans-serif;
+  background: var(--bg);
+  min-height: 100vh;
+  color: var(--text);
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+.app-shell {
+  width: min(1100px, 92vw);
+  margin: 0 auto;
+  padding: 10px 0;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 10px;
+  height: 100vh;
+}
+
+.app-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 18px;
+  border-radius: 12px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+}
+
+.app-title {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+}
+
+.app-subtitle {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.status-pill {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(126, 225, 196, 0.12);
+  border: 1px solid rgba(126, 225, 196, 0.35);
+  color: var(--accent-strong);
+  font-size: 0.7rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.app-main {
+  display: grid;
+  height: 100%;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.studio-stage {
+  background: var(--panel);
+  border-radius: 12px;
+  border: 1px solid var(--panel-border);
+  padding: 12px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.easycord-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: transparent;
+  height: 100%;
+  overflow: hidden;
+}
+
+.easycord-container h3 {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  display: none; /* Hide title inside container to save space */
+}
+
+.camera-viewport {
+  position: relative;
+  width: 100%;
+  flex: 1; /* Take remaining space */
+  min-height: 0; /* Allow shrinking */
+  background: #06070a;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid transparent;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.live-video,
+.playback-video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.status-overlay {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.status-badge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  backdrop-filter: blur(4px);
+}
+
+.status-badge.rec {
+  background: rgba(255, 99, 99, 0.9);
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-badge.ready {
+  background: rgba(110, 231, 183, 0.9);
+  color: #0c1c16;
+}
+
+.status-badge.paused {
+  background: rgba(255, 181, 107, 0.9);
+  color: #1a1a1a;
+}
+
+.status-badge.stopped {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.blink-dot {
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+.controls-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 4px;
+  flex-shrink: 0;
+}
+
+.status-panel {
+  display: flex;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 8px 12px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.manual-controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.easycord-container button {
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 500;
+  transition: transform 0.2s ease, border 0.2s ease, background 0.2s ease;
+}
+
+.easycord-container button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.easycord-container button.save-btn {
+  background: linear-gradient(140deg, var(--accent), #2a8a70);
+  border: none;
+  color: #0c1c16;
+}
+
+.easycord-container button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+@media (max-width: 720px) {
+  .camera-viewport {
+    height: 380px;
+  }
+}
