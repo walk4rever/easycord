@@ -3,7 +3,7 @@ set -euo pipefail
 
 APP_NAME="easycord"
 IMAGE_NAME="easycord:latest"
-HOST_PORT="8080"
+HOST_PORT="8081"
 
 docker build -t "${IMAGE_NAME}" .
 

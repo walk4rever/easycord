@@ -40,7 +40,7 @@ npm run preview
 ./deploy.sh
 ```
 
-默认容器端口为 `8080`，请在服务器上将 `https://air7.fun/easycord/` 通过反向代理映射到该容器。
+默认容器端口为 `8081`，请在服务器上将 `https://air7.fun/easycord/` 通过反向代理映射到该容器。
 
 ## 📄 License
 
