@@ -1,89 +1,46 @@
+// easycord/src/utils/videoConverter.ts
+
 /**
- * Video Converter - Converts WebM to MP4 using FFmpeg WASM
+ * Video Converter - Converts WebM to MP4 using FFmpeg WASM in a Web Worker
  *
  * Browser recording produces WebM files, but users want MP4.
- * This uses FFmpeg compiled to WebAssembly to do the conversion
- * entirely in the browser - no server needed.
- *
- * Uses single-threaded version for maximum compatibility (no special headers needed).
+ * This offloads the FFmpeg WASM conversion to a Web Worker to prevent UI blocking.
  */
 
-import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { fetchFile, toBlobURL } from '@ffmpeg/util';
+// Declare worker for TypeScript
+// No longer need to redeclare postMessage since we're using type: 'module' and direct import
+// declare global {
+//   interface Worker {
+//     postMessage(message: any, transfer: Transferable[]): void;
+//   }
+// }
 
-let ffmpeg: FFmpeg | null = null;
-let isLoading = false;
-let loadPromise: Promise<FFmpeg> | null = null;
+let worker: Worker | null = null;
+let workerLoadPromise: Promise<Worker> | null = null;
 
-/**
- * Load FFmpeg WASM (only needs to happen once)
- * Uses single-threaded core for compatibility
- */
-async function loadFFmpeg(onProgress?: (message: string) => void): Promise<FFmpeg> {
-  // If already loaded, return immediately
-  if (ffmpeg && ffmpeg.loaded) {
-    return ffmpeg;
+async function loadWorker(): Promise<Worker> {
+  if (worker) {
+    return worker;
   }
 
-  // If currently loading, wait for that to finish
-  if (isLoading && loadPromise) {
-    return loadPromise;
+  if (workerLoadPromise) {
+    return workerLoadPromise;
   }
 
-  isLoading = true;
-
-  loadPromise = (async () => {
-    ffmpeg = new FFmpeg();
-
-    // Log progress
-    ffmpeg.on('log', ({ message }) => {
-      console.log('[FFmpeg]', message);
-    });
-
-    ffmpeg.on('progress', ({ progress }) => {
-      // Clamp progress to valid range (FFmpeg sometimes reports weird values)
-      const clampedProgress = Math.max(0, Math.min(1, progress));
-      const percent = Math.round(clampedProgress * 100);
-      onProgress?.(`Converting: ${percent}%`);
-    });
-
-    onProgress?.('Loading converter...');
-
-    try {
-      // Use single-threaded version (no SharedArrayBuffer needed)
-      // Use version 0.12.6 which is known to work well with single-threaded
-      // Switch to jsDelivr for better reliability in some regions
-      const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm';
-      console.log('[FFmpeg] Loading core from:', baseURL);
-      
-      // Set a timeout for loading
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('FFmpeg load timeout')), 8000)
-      );
-
-      await Promise.race([
-        ffmpeg.load({
-          coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-          wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-        }),
-        timeoutPromise
-      ]);
-      console.log('[FFmpeg] Core loaded successfully');
-    } catch (error) {
-      console.error('Failed to load FFmpeg:', error);
-      isLoading = false;
-      loadPromise = null;
-      throw error;
-    }
-
-    return ffmpeg;
+  workerLoadPromise = (async () => {
+    // Create worker as a module worker to support 'import' statements
+    // The path should directly point to the compiled ffmpegWorker.js
+    // Vite/Webpack typically handles the URL resolution for module workers correctly
+    worker = new Worker(new URL('./ffmpegWorker.ts', import.meta.url), { type: 'module' });
+    console.log('[videoConverter] FFmpeg Worker created as module.');
+    return worker;
   })();
 
-  return loadPromise;
+  return workerLoadPromise;
 }
 
 /**
- * Convert a WebM blob to MP4
+ * Convert a WebM blob to MP4 using a Web Worker
  * @param webmBlob - The WebM video blob from MediaRecorder
  * @param onProgress - Optional callback for progress updates
  * @returns MP4 blob
@@ -92,58 +49,41 @@ export async function convertWebMToMP4(
   webmBlob: Blob,
   onProgress?: (message: string) => void
 ): Promise<Blob> {
-  const ff = await loadFFmpeg(onProgress);
+  const ffmpegWorker = await loadWorker();
 
-  onProgress?.('Preparing video...');
+  return new Promise((resolve, reject) => {
+    ffmpegWorker.onmessage = (event) => {
+      const { type, message, mp4Blob } = event.data;
+      if (type === 'progress') {
+        onProgress?.(message);
+      } else if (type === 'log') {
+        console.log(message);
+      } else if (type === 'error') {
+        console.error('[videoConverter] Worker Error:', message);
+        reject(new Error(message));
+      } else if (type === 'result') {
+        // mp4Blob is actually a Transferable here (ArrayBuffer or similar), needs to be Blob-ified
+        if (!(mp4Blob instanceof Blob)) {
+            const resultBlob = new Blob([mp4Blob], { type: 'video/mp4' });
+            resolve(resultBlob);
+        } else {
+            resolve(mp4Blob);
+        }
+        ffmpegWorker.onmessage = null; // Clean up listener
+      }
+    };
 
-  // Write the WebM file to FFmpeg's virtual filesystem
-  const webmData = await fetchFile(webmBlob);
-  await ff.writeFile('input.webm', webmData);
+    ffmpegWorker.onerror = (error) => {
+      console.error('[videoConverter] Worker failed:', error);
+      reject(new Error('FFmpeg Worker failed to load or run.'));
+      ffmpegWorker.onmessage = null; // Clean up listener
+    };
 
-  onProgress?.('Converting to MP4...');
-
-  // Convert WebM to MP4
-  // Try libx264 first (best quality), fall back to mpeg4 if not available
-  // Some ffmpeg.wasm builds don't include libx264 due to GPL licensing
-  try {
-    await ff.exec([
-      '-i', 'input.webm',
-      '-c:v', 'libx264',
-      '-preset', 'fast',
-      '-crf', '23',
-      '-c:a', 'aac',
-      '-b:a', '128k',
-      '-movflags', '+faststart',
-      'output.mp4'
-    ]);
-  } catch {
-    // Fallback to mpeg4 codec if libx264 is not available
-    console.log('[FFmpeg] libx264 not available, trying mpeg4...');
-    onProgress?.('Converting to MP4 (fallback)...');
-    await ff.exec([
-      '-i', 'input.webm',
-      '-c:v', 'mpeg4',
-      '-q:v', '5',
-      '-c:a', 'aac',
-      '-b:a', '128k',
-      '-movflags', '+faststart',
-      'output.mp4'
-    ]);
-  }
-
-  onProgress?.('Finalizing...');
-
-  // Read the output MP4 file
-  const mp4Data = await ff.readFile('output.mp4');
-
-  // Clean up
-  await ff.deleteFile('input.webm');
-  await ff.deleteFile('output.mp4');
-
-  // Convert to blob (need to handle the Uint8Array properly)
-  const mp4Blob = new Blob([new Uint8Array(mp4Data as Uint8Array)], { type: 'video/mp4' });
-
-  onProgress?.('Done!');
-
-  return mp4Blob;
+    // Post message to worker to start conversion.
+    // For Blobs, postMessage usually clones them automatically if not in transfer list.
+    // However, for efficiency, if we deal with ArrayBuffer, we should transfer.
+    // The webmBlob itself is not directly transferable; its underlying ArrayBuffer is.
+    // Let's send the Blob directly and let it be cloned.
+    ffmpegWorker.postMessage({ type: 'convert', webmBlob: webmBlob });
+  });
 }

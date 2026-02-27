@@ -1,7 +1,7 @@
 import { Muxer, ArrayBufferTarget } from 'mp4-muxer';
 
-export const isWebCodecsSupported = (): boolean => 
-  typeof VideoEncoder !== 'undefined' && typeof AudioEncoder !== 'undefined';
+export const isWebCodecsSupported = (): boolean =>
+  typeof VideoEncoder !== 'undefined' && typeof AudioEncoder !== 'undefined' && typeof AudioData !== 'undefined' && typeof VideoFrame !== 'undefined';
 
 export interface WebCodecsRecorderOptions {
   width: number;
@@ -18,7 +18,7 @@ export class WebCodecsRecorder {
   private audioEncoder: AudioEncoder | null = null;
   private audioContext: AudioContext | null = null;
   private mediaStreamSource: MediaStreamAudioSourceNode | null = null;
-  private scriptNode: ScriptProcessorNode | null = null;
+  private audioWorkletNode: AudioWorkletNode | null = null;
 
   private width: number;
   private height: number;
@@ -31,7 +31,7 @@ export class WebCodecsRecorder {
   private isRecording: boolean = false;
   private isPaused: boolean = false;
   private audioSampleRate: number = 48000;
-  
+
   // Excalicord specific properties
   private warmupFrames: number = 5; // Skip first few frames for encoder warmup
   private audioTimestamp: number = 0;
@@ -87,25 +87,30 @@ export class WebCodecsRecorder {
     // Create video encoder
     this.videoEncoder = new VideoEncoder({
       output: (chunk, meta) => {
+        if (chunk.byteLength === 0) {
+          console.warn('[WebCodecsRecorder] VideoEncoder outputted empty chunk.');
+          return;
+        }
+        // Original logging
+        // console.log(`[WebCodecsRecorder] Video chunk size: ${chunk.byteLength}, timestamp: ${chunk.timestamp}, type: ${chunk.type}, meta.timestamp: ${meta.timestamp}, meta.type: ${meta.type}, meta.decoderConfig: ${meta.decoderConfig ? 'present' : 'null'}`);
         this.muxer?.addVideoChunk(chunk, meta);
       },
       error: (e) => console.error('VideoEncoder error:', e),
     });
 
     // Configure video encoder with H.264
-    // Use High Profile Level 4.0 for 1080p support
-    // Level 4.0 supports up to 1920x1080 @ 30fps
     this.videoEncoder.configure({
-      codec: 'avc1.640028', // H.264 High Profile Level 4.0
+      codec: 'avc1.4D4028', // H.264 Main Profile Level 4.0 for broader compatibility
       width: this.width,
       height: this.height,
       bitrate: this.videoBitrate,
       framerate: this.frameRate,
-      latencyMode: 'realtime', // Optimize for live recording
+      latencyMode: 'quality', // Prioritize quality/stability for recorded output
     });
 
       // Wait for encoder to be ready
       await this.videoEncoder.flush();
+      // console.log('videoEncoder.decoderConfig after flush:', this.videoEncoder?.decoderConfig); // Removed logging
 
       // Set up audio encoding if we have an audio stream
       if (this.audioStream) {
@@ -138,17 +143,23 @@ export class WebCodecsRecorder {
       } catch (e) { console.error('Error closing audio encoder:', e); }
       this.audioEncoder = null;
     }
-
-    if (this.scriptNode) {
-      try { this.scriptNode.disconnect(); } catch (e) { console.error(e); }
-      this.scriptNode = null;
+    if (this.mediaStreamSource) {
+      try { this.mediaStreamSource.disconnect(); } catch (e) { console.error(e); }
+      this.mediaStreamSource = null;
+    }
+    if (this.audioWorkletNode) {
+      try {
+        this.audioWorkletNode.port.onmessage = null;
+        this.audioWorkletNode.disconnect();
+       } catch (e) { console.error(e); }
+      this.audioWorkletNode = null;
     }
 
     if (this.audioContext) {
       try { await this.audioContext.close(); } catch (e) { console.error('Error closing audio context:', e); }
       this.audioContext = null;
     }
-    
+
     this.muxer = null;
     this.isRecording = false;
   }
@@ -159,6 +170,11 @@ export class WebCodecsRecorder {
     // Create audio encoder
     this.audioEncoder = new AudioEncoder({
       output: (chunk, meta) => {
+        if (chunk.byteLength === 0) {
+          console.warn('[WebCodecsRecorder] AudioEncoder outputted empty chunk.');
+          return;
+        }
+        console.log(`[WebCodecsRecorder] Audio chunk size: ${chunk.byteLength}, timestamp: ${meta.timestamp}, type: ${meta.type}`);
         this.muxer?.addAudioChunk(chunk, meta);
       },
       error: (e) => console.error('AudioEncoder error:', e),
@@ -169,7 +185,6 @@ export class WebCodecsRecorder {
       numberOfChannels: 1,
       sampleRate: this.audioSampleRate,
       bitrate: this.audioBitrate,
-      // bitrate: 128_000,
     });
 
     // Get audio track from stream
@@ -179,25 +194,30 @@ export class WebCodecsRecorder {
       return;
     }
 
-    // Create media stream source
+    // Add the audio worklet module
+    try {
+      const audioProcessorURL = new URL('./audioProcessor.js', import.meta.url).href;
+      await this.audioContext.audioWorklet.addModule(audioProcessorURL);
+    } catch (e) {
+      console.error('[WebCodecsRecorder] Failed to add audio worklet module:', e);
+      throw new Error('Failed to load audio processor. This browser may not support AudioWorklets properly.');
+    }
+
+    // Create media stream source and the worklet node
     const audioOnlyStream = new MediaStream([audioTrack]);
     this.mediaStreamSource = this.audioContext.createMediaStreamSource(audioOnlyStream);
+    this.audioWorkletNode = new AudioWorkletNode(this.audioContext, 'audio-processor');
 
-    // Use ScriptProcessorNode for audio capture (simpler than AudioWorklet)
-    const bufferSize = 4096;
-    this.scriptNode = this.audioContext.createScriptProcessor(bufferSize, 1, 1);
-
-    this.scriptNode.onaudioprocess = (event) => {
+    // Listen for messages from the worklet (the Int16 audio data)
+    this.audioWorkletNode.port.onmessage = (event) => {
       if (!this.isRecording || this.isPaused || !this.audioEncoder) return;
 
-      const inputData = event.inputBuffer.getChannelData(0);
-
-      // Convert Float32 to Int16
-      const int16Data = new Int16Array(inputData.length);
-      for (let i = 0; i < inputData.length; i++) {
-        const s = Math.max(-1, Math.min(1, inputData[i]));
-        int16Data[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+      const int16Data = event.data as Int16Array;
+      if (int16Data.length === 0) {
+        console.warn('[WebCodecsRecorder] AudioWorklet outputted empty data.');
+        return;
       }
+      console.log(`[WebCodecsRecorder] AudioWorklet data length: ${int16Data.length}`);
 
       // Create AudioData with accumulated timestamp
       const audioData = new AudioData({
@@ -213,16 +233,18 @@ export class WebCodecsRecorder {
       this.audioTimestamp += (int16Data.length / this.audioSampleRate) * 1_000_000;
 
       try {
-        this.audioEncoder.encode(audioData);
+        if (this.audioEncoder.state === 'configured') {
+          this.audioEncoder.encode(audioData);
+        }
       } catch (e) {
         console.error('Audio encode error:', e);
+      } finally {
+        audioData.close();
       }
-
-      audioData.close();
     };
 
-    this.mediaStreamSource.connect(this.scriptNode);
-    this.scriptNode.connect(this.audioContext.destination);
+    // Connect the nodes: MediaStreamSource -> AudioWorkletNode
+    this.mediaStreamSource.connect(this.audioWorkletNode);
   }
 
   // Call this for each frame with the canvas
@@ -232,7 +254,7 @@ export class WebCodecsRecorder {
     // Throttling logic: ensure we don't record faster than target frameRate
     const now = performance.now();
     const minInterval = 1000 / this.frameRate;
-    
+
     // Only throttle if we have recorded at least one frame (after warmup)
     if (this.frameCount >= this.warmupFrames && now - this.lastFrameTime < minInterval) {
       return;
@@ -340,9 +362,11 @@ export class WebCodecsRecorder {
         this.muxer.finalize();
       } catch (e) {
         console.error('[WebCodecsRecorder] Muxer finalize failed:', e);
-        // Try to proceed anyway to get whatever is in the buffer
+        // Previously: Try to proceed anyway to get whatever is in the buffer
+        // New: Re-throw the error, as proceeding leads to corrupted files.
+        throw new Error(`Failed to finalize MP4 muxer: ${e instanceof Error ? e.message : String(e)}`);
       }
-      
+
       // Get the MP4 data
       const { buffer } = this.muxer.target;
       const blob = new Blob([buffer], { type: 'video/mp4' });
@@ -355,7 +379,7 @@ export class WebCodecsRecorder {
       throw e;
     }
   }
-  
+
   get recording(): boolean {
     return this.isRecording;
   }

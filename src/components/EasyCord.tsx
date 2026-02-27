@@ -15,6 +15,7 @@ export default function EasyCord() {
   const [webCodecsError, setWebCodecsError] = useState<string | null>(null);
   const isFirefox = navigator.userAgent.toLowerCase().includes('firefox');
 
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const discardOnStopRef = useRef(false);
@@ -147,6 +148,8 @@ export default function EasyCord() {
       console.log('Firefox detected: forcing MediaRecorder for compatibility');
       setWebCodecsError(null);
     }
+
+
 
     if (webCodecsSupported && videoRef.current) {
       const videoTrack = currentStream.getVideoTracks()[0];
@@ -299,7 +302,7 @@ export default function EasyCord() {
         setIsConverting(true);
         setConvertMessage('正在加载转换器...');
         console.log('Converting WebM to MP4...');
-        const timeoutMs = 10000;
+        const timeoutMs = 300000;
         const timeoutPromise = new Promise<Blob>((_, reject) =>
           setTimeout(() => reject(new Error('convert_timeout')), timeoutMs)
         );
