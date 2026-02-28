@@ -5,7 +5,6 @@ import { GestureManager } from '../utils/gestureManager';
 export default function EasyCord() {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [isRecording, setIsRecording] = useState(false);
-  const [hasRecording, setHasRecording] = useState(false);
   const [cameraStatus, setCameraStatus] = useState<'ready' | 'not-ready' | 'loading'>('loading');
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +38,7 @@ export default function EasyCord() {
     
     setVideoUrl(null);
     recordedBlobRef.current = null;
-    setHasRecording(false);
+
     
     let currentStream = streamRef.current;
     if (!currentStream) return;
@@ -59,7 +58,7 @@ export default function EasyCord() {
           const blob = new Blob(recordedChunksRef.current, { type: 'video/mp4' });
           recordedBlobRef.current = blob;
           setVideoUrl(URL.createObjectURL(blob));
-          setHasRecording(true);
+
           downloadBlob(blob);
         };
         recorder.start(100);
@@ -96,7 +95,7 @@ export default function EasyCord() {
         } finally {
           setIsConverting(false);
           setVideoUrl(URL.createObjectURL(recordedBlobRef.current!));
-          setHasRecording(true);
+
         }
       };
       recorder.start(100);
@@ -118,7 +117,7 @@ export default function EasyCord() {
 
   const resetRecording = useCallback(() => {
     setVideoUrl(null);
-    setHasRecording(false);
+
     setRecordingMode(null);
     recordedBlobRef.current = null;
     recordedChunksRef.current = [];
