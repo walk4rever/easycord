@@ -209,37 +209,21 @@ export default function EasyCord() {
     <div className="easycord-container">
       {error && <div className="error-message">{error}</div>}
 
-      <div className={`camera-viewport ${isRecording ? 'recording-active' : ''}`}>
+      <div className={`camera-viewport ${isRecording ? 'recording-active' : ''} ${videoUrl && !isRecording ? 'playback-active' : ''}`}>
         <video
           ref={videoRef}
           autoPlay
           muted
           playsInline
           className="live-video"
-          style={{ 
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            opacity: videoUrl && !isRecording ? 0.01 : 1, // 回放时几乎透明但仍在运行
-            zIndex: videoUrl && !isRecording ? 1 : 2
-          }}
         />
+        
         {videoUrl && !isRecording && (
           <video 
             src={videoUrl} 
             controls 
-            autoPlay
+            autoPlay 
             className="playback-video" 
-            style={{ 
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              zIndex: 3 
-            }}
           />
         )}
         
