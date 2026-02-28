@@ -139,7 +139,7 @@ export default function EasyCord() {
       }
     }
     requestRef.current = requestAnimationFrame(animate);
-  }, [startRecording, stopRecording]);
+  }, [startRecording, stopRecording, resetRecording, videoUrl]);
 
   useEffect(() => {
     const initAI = async () => {
