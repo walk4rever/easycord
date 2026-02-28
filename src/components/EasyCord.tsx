@@ -216,9 +216,32 @@ export default function EasyCord() {
           muted
           playsInline
           className="live-video"
-          style={{ display: videoUrl && !isRecording ? 'none' : 'block' }}
+          style={{ 
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            opacity: videoUrl && !isRecording ? 0.01 : 1, // 回放时几乎透明但仍在运行
+            zIndex: videoUrl && !isRecording ? 1 : 2
+          }}
         />
-        {videoUrl && !isRecording && <video src={videoUrl} controls className="playback-video" />}
+        {videoUrl && !isRecording && (
+          <video 
+            src={videoUrl} 
+            controls 
+            autoPlay
+            className="playback-video" 
+            style={{ 
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              zIndex: 3 
+            }}
+          />
+        )}
         
         <div className="status-overlay">
           {isRecording && <div className="status-badge rec"><span className="blink-dot">●</span> REC</div>}
