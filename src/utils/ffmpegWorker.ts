@@ -7,56 +7,28 @@ let ffmpeg: FFmpeg | null = null;
 let isLoading = false;
 let loadPromise: Promise<FFmpeg> | null = null;
 
-async function loadFFmpeg(onProgress?: (message: string) => void): Promise<FFmpeg> {
-  if (ffmpeg && ffmpeg.loaded) {
-    return ffmpeg;
-  }
-
-  if (isLoading && loadPromise) {
-    return loadPromise;
-  }
+async function loadFFmpeg(): Promise<FFmpeg> {
+  if (ffmpeg && ffmpeg.loaded) return ffmpeg;
+  if (isLoading && loadPromise) return loadPromise;
 
   isLoading = true;
-
   loadPromise = (async () => {
     ffmpeg = new FFmpeg();
-
-    ffmpeg.on('log', ({ message }) => {
-      // console.log('[FFmpeg Worker]', message);
-      postMessage({ type: 'log', message: `[FFmpeg Worker] ${message}` });
-    });
-
+    ffmpeg.on('log', ({ message }) => postMessage({ type: 'log', message: `[FFmpeg Worker] ${message}` }));
     ffmpeg.on('progress', ({ progress }) => {
-      const clampedProgress = Math.max(0, Math.min(1, progress));
-      const percent = Math.round(clampedProgress * 100);
+      const percent = Math.round(Math.max(0, Math.min(1, progress)) * 100);
       postMessage({ type: 'progress', message: `Converting: ${percent}%` });
     });
 
-    postMessage({ type: 'progress', message: 'Loading converter...' });
-
     try {
-      const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm';
-      postMessage({ type: 'log', message: `[FFmpeg Worker] Loading core from: ${baseURL}` });
-      
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('FFmpeg load timeout')), 300000) // Increased timeout to 5 minutes
-      );
-
-      await Promise.race([
-        ffmpeg.load({
-          coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-          wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-        }),
-        timeoutPromise
-      ]);
-      postMessage({ type: 'log', message: '[FFmpeg Worker] Core loaded successfully' });
+      const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+      await ffmpeg.load({
+        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+      });
     } catch (error) {
-      postMessage({ type: 'error', message: `Failed to load FFmpeg: ${error instanceof Error ? error.message : String(error)}` });
-      isLoading = false;
-      loadPromise = null;
-      throw error;
+      isLoading = false; loadPromise = null; throw error;
     }
-
     return ffmpeg;
   })();
 
@@ -68,8 +40,7 @@ self.onmessage = async (event) => {
 
   if (type === 'convert') {
     try {
-      const ff = await loadFFmpeg(); // Load FFmpeg within the worker context
-      
+      const ff = await loadFFmpeg();
       postMessage({ type: 'progress', message: 'Preparing video...' });
 
       const webmData = await fetchFile(webmBlob);
@@ -77,41 +48,51 @@ self.onmessage = async (event) => {
 
       postMessage({ type: 'progress', message: 'Converting to MP4...' });
 
+      /**
+       * FIREFOX SYNC FIX:
+       * 1. -fflags +genpts+igndts: Ignore source DTS and regenerate pts to avoid desync
+       * 2. -avoid_negative_ts make_zero: Force all timestamps to start from 0
+       * 3. -r 30: Force constant 30fps
+       * 4. -af aresample=async=1: Synchronize audio with video frames by stretching/shrinking audio
+       */
       try {
         await ff.exec([
+          '-fflags', '+genpts+igndts',
+          '-avoid_negative_ts', 'make_zero',
           '-i', 'input.webm',
+          '-r', '30',
           '-c:v', 'libx264',
-          '-preset', 'fast',
-          '-crf', '23',
+          '-preset', 'ultrafast',
+          '-crf', '26',
           '-c:a', 'aac',
           '-b:a', '128k',
+          '-af', 'aresample=async=1', // Sync audio
           '-movflags', '+faststart',
+          '-vsync', 'cfr',
           'output.mp4'
         ]);
       } catch (error) {
-        postMessage({ type: 'log', message: `[FFmpeg Worker] libx264 conversion failed, trying mpeg4... ${error instanceof Error ? error.message : String(error)}` });
-        postMessage({ type: 'progress', message: 'Converting to MP4 (fallback)...' });
+        postMessage({ type: 'log', message: `[FFmpeg Worker] Primary conversion failed, trying robust fallback...` });
         await ff.exec([
           '-i', 'input.webm',
+          '-r', '30',
           '-c:v', 'mpeg4',
-          '-q:v', '5',
+          '-q:v', '6',
           '-c:a', 'aac',
-          '-b:a', '128k',
+          '-af', 'aresample=async=1',
           '-movflags', '+faststart',
+          '-vsync', 'cfr',
           'output.mp4'
         ]);
       }
 
       postMessage({ type: 'progress', message: 'Finalizing...' });
-
       const mp4Data = await ff.readFile('output.mp4');
-      
       await ff.deleteFile('input.webm');
       await ff.deleteFile('output.mp4');
 
       const mp4Blob = new Blob([new Uint8Array(mp4Data as Uint8Array)], { type: 'video/mp4' });
-
-      postMessage({ type: 'result', mp4Blob: mp4Blob }, [mp4Blob]); // Transfer ownership of blob
+      postMessage({ type: 'result', mp4Blob: mp4Blob });
     } catch (error) {
       postMessage({ type: 'error', message: `Conversion failed: ${error instanceof Error ? error.message : String(error)}` });
     }

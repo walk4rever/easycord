@@ -235,6 +235,50 @@ body {
   transform: none;
 }
 
+.easycord-container button.primary-btn {
+  background: var(--accent);
+  color: #0c1c16;
+  border: none;
+  padding: 8px 20px;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(126, 225, 196, 0.2);
+}
+
+.easycord-container button.primary-btn:hover {
+  background: var(--accent-strong);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(126, 225, 196, 0.3);
+}
+
+.easycord-container button.stop-btn {
+  background: var(--danger);
+  color: white;
+  border: none;
+  padding: 8px 20px;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(255, 99, 99, 0.2);
+}
+
+.easycord-container button.stop-btn:hover {
+  background: #ff7d7d;
+  transform: translateY(-2px);
+}
+
+.error-message {
+  background: rgba(255, 99, 99, 0.1);
+  border: 1px solid rgba(255, 99, 99, 0.3);
+  color: #ff9b9b;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  margin-bottom: 10px;
+}
+
+.status-panel .action {
+  color: var(--accent);
+  font-weight: 600;
+}
+
 @media (max-width: 720px) {
   .camera-viewport {
     height: 380px;

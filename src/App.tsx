@@ -9,7 +9,7 @@ function App() {
           <div className="app-title">EasyCord</div>
           <div className="app-subtitle">极简录制 · MP4 直出</div>
         </div>
-        <div className="status-pill">Ready</div>
+        <div className="status-pill">Powered by Air7.fun</div>
       </header>
 
       <main className="app-main">
