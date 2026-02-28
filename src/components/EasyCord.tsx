@@ -133,7 +133,7 @@ export default function EasyCord() {
           startRecording();
         } else if (gesture === 'Open_Palm' && isRecordingRef.current) {
           stopRecording();
-        } else if (gesture === 'Victory' && !isRecordingRef.current && videoUrl) {
+        } else if (gesture === 'Thumb_Down' && !isRecordingRef.current && videoUrl) {
           resetRecording();
         }
       }
@@ -238,7 +238,7 @@ export default function EasyCord() {
         )}
         {!isRecording && videoUrl && (
           <div className="gesture-hint secondary">
-            ✌️ 剪刀手重置
+            👎 拇指朝下重置
           </div>
         )}
       </div>

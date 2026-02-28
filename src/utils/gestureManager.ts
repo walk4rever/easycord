@@ -5,7 +5,7 @@ export class GestureManager {
   private recognizer: GestureRecognizer | null = null;
   private lastGesture: string = 'None';
   private gestureCount: number = 0;
-  private readonly TRIGGER_THRESHOLD = 15; // 连续 15 帧确认手势 (约 0.5s)
+  private readonly TRIGGER_THRESHOLD = 8; // 连续 8 帧确认手势 (约 0.25s), 提高响应速度
 
   private constructor() {}
 
@@ -30,9 +30,9 @@ export class GestureManager {
       },
       runningMode: "VIDEO",
       numHands: 1,
-      minHandDetectionConfidence: 0.7,
-      minHandPresenceConfidence: 0.7,
-      minTrackingConfidence: 0.7
+      minHandDetectionConfidence: 0.5, // 降低门槛，增加灵敏度
+      minHandPresenceConfidence: 0.5,
+      minTrackingConfidence: 0.5
     });
   }
 
