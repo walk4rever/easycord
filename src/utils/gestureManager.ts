@@ -23,18 +23,19 @@ export class GestureManager {
     }
     
     console.log("[GestureManager] Starting initialization...");
+    // WASM 依然使用 unpkg (你那边已经证明能通)，模型切换到 Vercel 本地
     const WASM_URL = "https://unpkg.com/@mediapipe/tasks-vision@0.10.32/wasm";
-    const MODEL_URL = "https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task";
+    const MODEL_PATH = "/models/gesture_recognizer.task";
     
     try {
       console.log("[GestureManager] Loading WASM from:", WASM_URL);
       const vision = await FilesetResolver.forVisionTasks(WASM_URL);
       console.log("[GestureManager] WASM loaded successfully");
       
-      console.log("[GestureManager] Loading Model from:", MODEL_URL);
+      console.log("[GestureManager] Loading LOCAL Model from:", MODEL_PATH);
       this.recognizer = await GestureRecognizer.createFromOptions(vision, {
         baseOptions: {
-          modelAssetPath: MODEL_URL,
+          modelAssetPath: MODEL_PATH,
           delegate: "GPU"
         },
         runningMode: "VIDEO",
@@ -50,7 +51,7 @@ export class GestureManager {
         const vision = await FilesetResolver.forVisionTasks(WASM_URL);
         this.recognizer = await GestureRecognizer.createFromOptions(vision, {
           baseOptions: {
-            modelAssetPath: MODEL_URL,
+            modelAssetPath: MODEL_PATH,
             delegate: "CPU"
           },
           runningMode: "VIDEO",
