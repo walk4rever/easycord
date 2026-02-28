@@ -157,9 +157,6 @@ body {
   50% { opacity: 1; transform: translateX(-50%) scale(1.05); }
   100% { opacity: 0.8; transform: translateX(-50%) scale(1); }
 }
-  height: 100%;
-  overflow: hidden;
-}
 
 .easycord-container h3 {
   font-size: 0.9rem;
