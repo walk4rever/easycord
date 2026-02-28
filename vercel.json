@@ -20,7 +20,7 @@
       "destination": "/api/:path*"
     },
     {
-      "source": "/((?!api/).*)",
+      "source": "/((?!assets/|api/|favicon.ico|logo.svg).*)",
       "destination": "/index.html"
     }
   ]
