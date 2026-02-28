@@ -134,6 +134,8 @@ export default function EasyCord() {
           startRecording();
         } else if (gesture === 'Open_Palm' && isRecordingRef.current) {
           stopRecording();
+        } else if (gesture === 'Victory' && !isRecordingRef.current && videoUrl) {
+          resetRecording();
         }
       }
     }
@@ -227,34 +229,29 @@ export default function EasyCord() {
         {/* Gesture Instruction Overlay */}
         {!isRecording && !videoUrl && !isGestureLoading && (
           <div className="gesture-hint">
-            比个 👍 开始录制
+            👍 比赞开始录制
           </div>
         )}
         {isRecording && (
           <div className="gesture-hint">
-            伸出 🖐️ 停止录制
+            🖐️ 伸手掌停止录制
+          </div>
+        )}
+        {!isRecording && videoUrl && (
+          <div className="gesture-hint secondary">
+            ✌️ 剪刀手重置
           </div>
         )}
       </div>
 
       <div className="controls-section">
         <div className="status-panel">
-          <p>模式: {recordingMode === 'NativeMP4' ? '原生 MP4 (极速)' : '兼容模式 (自动转换)'}</p>
-          <p>状态: <span className="action">{isConverting ? convertMessage : (isRecording ? '录制中' : '就绪')}</span></p>
+          <p>模式: {recordingMode === 'NativeMP4' ? '原生 MP4' : '兼容模式'}</p>
+          <p>状态: <span className="action">{isConverting ? convertMessage : (isRecording ? '录制中' : (videoUrl ? '回放中' : '就绪'))}</span></p>
         </div>
 
         <div className="manual-controls">
-          {!isRecording && !videoUrl ? (
-            <button onClick={startRecording} disabled={isConverting || cameraStatus !== 'ready'} className="primary-btn">开始录制</button>
-          ) : isRecording ? (
-            <button onClick={stopRecording} className="stop-btn">停止并保存</button>
-          ) : (
-            <button onClick={resetRecording} className="reset-btn">重新录制</button>
-          )}
-          
-          {hasRecording && !isRecording && !isConverting && (
-            <button onClick={() => downloadBlob(recordedBlobRef.current!)} className="save-btn">下载视频</button>
-          )}
+           <span className="gesture-only-tag">PURE GESTURE MODE</span>
         </div>
       </div>
     </div>
