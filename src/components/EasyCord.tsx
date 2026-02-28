@@ -14,7 +14,6 @@ export default function EasyCord() {
   const [recordingMode, setRecordingMode] = useState<'NativeMP4' | 'WebCodecs' | 'MediaRecorder' | null>(null);
   
   // Gesture States
-  const [currentGesture, setCurrentGesture] = useState<string>('None');
   const [isGestureLoading, setIsGestureLoading] = useState(true);
 
   const isFirefox = navigator.userAgent.toLowerCase().includes('firefox');
@@ -129,7 +128,6 @@ export default function EasyCord() {
   const animate = useCallback((time: number) => {
     if (videoRef.current && videoRef.current.readyState >= 2) {
       const { gesture, isTriggered } = GestureManager.getInstance().processFrame(videoRef.current, time);
-      setCurrentGesture(gesture);
       
       if (isTriggered) {
         if (gesture === 'Thumb_Up' && !isRecordingRef.current && !videoUrl) {
@@ -205,16 +203,6 @@ export default function EasyCord() {
     startCamera();
     return () => { if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop()); };
   }, [startCamera]);
-
-  const gestureEmoji: Record<string, string> = {
-    'Thumb_Up': '👍 (开始录制)',
-    'Open_Palm': '🖐️ (停止保存)',
-    'Victory': '✌️',
-    'Pointing_Up': '☝️',
-    'Thumb_Down': '👎',
-    'None': '检测中...',
-    'Loading': '模型加载中...'
-  };
 
   return (
     <div className="easycord-container">
