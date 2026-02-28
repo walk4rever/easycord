@@ -129,6 +129,46 @@ body {
   z-index: 10;
 }
 
+.status-overlay {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  z-index: 20;
+}
+
+.status-badge {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.75rem;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-badge.rec {
+  background: rgba(255, 99, 99, 0.9);
+  color: white;
+  box-shadow: 0 0 10px rgba(255, 99, 99, 0.4);
+}
+
+.status-badge.ready {
+  background: rgba(110, 231, 183, 0.9);
+  color: #064e3b;
+}
+
+.blink-dot {
+  color: #fff;
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  0% { opacity: 1; }
+  50% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
 /* 底部控制区 - 固定在底部 */
 .controls-section {
   display: flex;
@@ -138,30 +178,21 @@ body {
   padding: 12px 16px;
   border-radius: 12px;
   border: 1px solid var(--panel-border);
-}
-
-.status-panel p {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  line-height: 1.4;
+  min-height: 60px;
 }
 
 .manual-controls {
   display: flex;
   gap: 8px;
+  z-index: 30;
 }
 
-button {
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-weight: 600;
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: all 0.2s;
-  border: none;
+.primary-btn { 
+  background: var(--accent); 
+  color: var(--bg);
+  box-shadow: 0 4px 14px rgba(126, 225, 196, 0.3);
 }
 
-.primary-btn { background: var(--accent); color: var(--bg); }
 .stop-btn { background: var(--danger); color: white; }
 .reset-btn { background: #374151; color: white; }
 .save-btn { background: #3b82f6; color: white; }
