@@ -24,7 +24,7 @@ export default function EasyCord() {
   const recordedChunksRef = useRef<Blob[]>([]);
   const recordedBlobRef = useRef<Blob | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const requestRef = useRef<number>();
+  const requestRef = useRef<number>(0);
 
   const isRecordingRef = useRef(isRecording);
   const isConvertingRef = useRef(isConverting);
