@@ -1,17 +1,22 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { convertWebMToMP4 } from '../utils/videoConverter';
+import { GestureManager } from '../utils/gestureManager';
 
 export default function EasyCord() {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [hasRecording, setHasRecording] = useState(false);
-  const [cameraStatus, setCameraStatus] = useState<'ready' | 'not-ready'>('not-ready');
+  const [cameraStatus, setCameraStatus] = useState<'ready' | 'not-ready' | 'loading'>('loading');
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isConverting, setIsConverting] = useState(false);
   const [convertMessage, setConvertMessage] = useState('就绪');
   const [recordingMode, setRecordingMode] = useState<'NativeMP4' | 'WebCodecs' | 'MediaRecorder' | null>(null);
   
+  // Gesture States
+  const [currentGesture, setCurrentGesture] = useState<string>('None');
+  const [isGestureLoading, setIsGestureLoading] = useState(true);
+
   const isFirefox = navigator.userAgent.toLowerCase().includes('firefox');
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -19,96 +24,35 @@ export default function EasyCord() {
   const recordedChunksRef = useRef<Blob[]>([]);
   const recordedBlobRef = useRef<Blob | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const requestRef = useRef<number>();
+
+  const isRecordingRef = useRef(isRecording);
+  const isConvertingRef = useRef(isConverting);
 
   useEffect(() => {
-    streamRef.current = stream;
-    if (stream && videoRef.current) {
-      videoRef.current.srcObject = stream;
-    }
-  }, [stream]);
+    isRecordingRef.current = isRecording;
+    isConvertingRef.current = isConverting;
+  }, [isRecording, isConverting]);
 
-  const getBestMimeType = () => {
-    // Try Native MP4 first (Chrome/Edge)
-    const mp4Types = [
-      'video/mp4;codecs=avc1.640028,mp4a.40.2',
-      'video/mp4;codecs=avc1,mp4a.40.2',
-      'video/mp4'
-    ];
-    for (const type of mp4Types) {
-      if (MediaRecorder.isTypeSupported(type)) return { type, isNativeMP4: true };
-    }
-
-    // Fallback to WebM
-    const webmTypes = [
-      'video/webm;codecs=vp9,opus',
-      'video/webm;codecs=vp8,opus',
-      'video/webm'
-    ];
-    for (const type of webmTypes) {
-      if (MediaRecorder.isTypeSupported(type)) return { type, isNativeMP4: false };
-    }
-
-    return { type: 'video/webm', isNativeMP4: false };
-  };
-
-  const startCamera = useCallback(async () => {
-    try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { 
-          width: { ideal: 1280 }, 
-          height: { ideal: 720 },
-          frameRate: { ideal: 30 }
-        },
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        }
-      });
-      setStream(mediaStream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-      }
-      setError(null);
-      setCameraStatus('ready');
-      return mediaStream;
-    } catch (err) {
-      console.error('Error accessing camera:', err);
-      setError('无法访问摄像头和麦克风。');
-      setCameraStatus('not-ready');
-      return null;
-    }
-  }, []);
-
-  const downloadBlob = (blob: Blob) => {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `easycord-${new Date().getTime()}.${blob.type === 'video/mp4' ? 'mp4' : 'webm'}`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 100);
-  };
-
-  const startRecording = async () => {
+  // Handle Recording Logic
+  const startRecording = useCallback(async () => {
+    if (isRecordingRef.current || isConvertingRef.current) return;
+    
     setVideoUrl(null);
     recordedBlobRef.current = null;
     setHasRecording(false);
     
-    let currentStream = stream;
-    if (!currentStream) {
-      currentStream = await startCamera();
-      if (!currentStream) return;
-    }
+    let currentStream = streamRef.current;
+    if (!currentStream) return;
 
     const { type: mimeType, isNativeMP4 } = getBestMimeType();
 
-    // 1. If Native MP4 is supported (Chrome/Edge), use it! (Most stable A/V sync)
     if (isNativeMP4 && !isFirefox) {
       try {
         setRecordingMode('NativeMP4');
         const recorder = new MediaRecorder(currentStream, { 
           mimeType,
-          videoBitsPerSecond: 6_000_000 // High quality
+          videoBitsPerSecond: 6_000_000
         });
         recordedChunksRef.current = [];
         recorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunksRef.current.push(e.data); };
@@ -128,12 +72,6 @@ export default function EasyCord() {
       }
     }
 
-    // 2. WebCodecs (Excalicord Style) - Best for canvas composites
-    // We only use this if we want to record the CANVAS (e.g. for future drawing features)
-    // but for simple camera, MediaRecorder is actually better. 
-    // Let's keep the option open but default to MediaRecorder for stability.
-    
-    // 3. Fallback to MediaRecorder (WebM -> MP4)
     try {
       setRecordingMode('MediaRecorder');
       const recorder = new MediaRecorder(currentStream, { 
@@ -169,13 +107,90 @@ export default function EasyCord() {
       console.error('MediaRecorder error:', e);
       setError('无法启动录制');
     }
-  };
+  }, []);
 
-  const stopRecording = async () => {
+  const stopRecording = useCallback(async () => {
+    if (!isRecordingRef.current) return;
     setIsRecording(false);
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
     }
+  }, []);
+
+  // Gesture Recognition Loop
+  const animate = useCallback((time: number) => {
+    if (videoRef.current && videoRef.current.readyState >= 2) {
+      const { gesture, isTriggered } = GestureManager.getInstance().processFrame(videoRef.current, time);
+      setCurrentGesture(gesture);
+      
+      if (isTriggered) {
+        if (gesture === 'Thumb_Up' && !isRecordingRef.current) {
+          startRecording();
+        } else if (gesture === 'Open_Palm' && isRecordingRef.current) {
+          stopRecording();
+        }
+      }
+    }
+    requestRef.current = requestAnimationFrame(animate);
+  }, [startRecording, stopRecording]);
+
+  useEffect(() => {
+    const initAI = async () => {
+      try {
+        await GestureManager.getInstance().init();
+        setIsGestureLoading(false);
+        requestRef.current = requestAnimationFrame(animate);
+      } catch (err) {
+        console.error("Failed to init GestureManager:", err);
+        setError("手势识别初始化失败");
+      }
+    };
+    initAI();
+    return () => {
+      if (requestRef.current) cancelAnimationFrame(requestRef.current);
+    };
+  }, [animate]);
+
+  useEffect(() => {
+    streamRef.current = stream;
+    if (stream && videoRef.current) {
+      videoRef.current.srcObject = stream;
+    }
+  }, [stream]);
+
+  const getBestMimeType = () => {
+    const mp4Types = ['video/mp4;codecs=avc1.640028,mp4a.40.2', 'video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4'];
+    for (const type of mp4Types) {
+      if (MediaRecorder.isTypeSupported(type)) return { type, isNativeMP4: true };
+    }
+    return { type: 'video/webm', isNativeMP4: false };
+  };
+
+  const startCamera = useCallback(async () => {
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+      });
+      setStream(mediaStream);
+      setError(null);
+      setCameraStatus('ready');
+      return mediaStream;
+    } catch (err) {
+      console.error('Error accessing camera:', err);
+      setError('无法访问摄像头和麦克风。');
+      setCameraStatus('not-ready');
+      return null;
+    }
+  }, []);
+
+  const downloadBlob = (blob: Blob) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `easycord-${new Date().getTime()}.${blob.type === 'video/mp4' ? 'mp4' : 'webm'}`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 100);
   };
 
   useEffect(() => {
@@ -183,9 +198,24 @@ export default function EasyCord() {
     return () => { if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop()); };
   }, [startCamera]);
 
+  const gestureEmoji: Record<string, string> = {
+    'Thumb_Up': '👍 (开始录制)',
+    'Open_Palm': '🖐️ (停止保存)',
+    'Victory': '✌️',
+    'Pointing_Up': '☝️',
+    'Thumb_Down': '👎',
+    'None': '检测中...',
+    'Loading': '模型加载中...'
+  };
+
   return (
     <div className="easycord-container">
-      <h3>📷 简单视频录制 · MP4 直出</h3>
+      <header className="app-header">
+        <h3>📷 EasyCord <span className="beta-tag">AI Powered</span></h3>
+        <div className={`gesture-indicator ${isGestureLoading ? 'loading' : ''}`}>
+           {isGestureLoading ? '⏳ AI 初始化...' : `当前动作: ${gestureEmoji[currentGesture] || currentGesture}`}
+        </div>
+      </header>
 
       {error && <div className="error-message">{error}</div>}
 
@@ -199,21 +229,34 @@ export default function EasyCord() {
           style={{ display: videoUrl && !isRecording ? 'none' : 'block' }}
         />
         {videoUrl && !isRecording && <video src={videoUrl} controls className="playback-video" />}
+        
         <div className="status-overlay">
           {isRecording && <div className="status-badge rec"><span className="blink-dot">●</span> REC</div>}
           {!isRecording && !videoUrl && cameraStatus === 'ready' && <div className="status-badge ready">READY</div>}
         </div>
+
+        {/* Gesture Instruction Overlay */}
+        {!isRecording && !videoUrl && !isGestureLoading && (
+          <div className="gesture-hint">
+            比个 👍 开始录制
+          </div>
+        )}
+        {isRecording && (
+          <div className="gesture-hint">
+            伸出 🖐️ 停止录制
+          </div>
+        )}
       </div>
 
       <div className="controls-section">
         <div className="status-panel">
-          <p>模式: {recordingMode === 'NativeMP4' ? '原生 MP4 (极速)' : (recordingMode === 'WebCodecs' ? 'WebCodecs (MP4)' : '兼容模式 (自动同步音轨)')}</p>
+          <p>模式: {recordingMode === 'NativeMP4' ? '原生 MP4 (极速)' : '兼容模式 (自动转换)'}</p>
           <p>状态: <span className="action">{isConverting ? convertMessage : (isRecording ? '录制中' : '就绪')}</span></p>
         </div>
 
         <div className="manual-controls">
           {!isRecording ? (
-            <button onClick={startRecording} disabled={isConverting} className="primary-btn">开始录制</button>
+            <button onClick={startRecording} disabled={isConverting || cameraStatus !== 'ready'} className="primary-btn">开始录制</button>
           ) : (
             <button onClick={stopRecording} className="stop-btn">停止并保存</button>
           )}
