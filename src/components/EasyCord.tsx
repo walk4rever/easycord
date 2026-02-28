@@ -218,13 +218,6 @@ export default function EasyCord() {
 
   return (
     <div className="easycord-container">
-      <header className="app-header">
-        <h3>📷 EasyCord <span className="beta-tag">AI Powered</span></h3>
-        <div className={`gesture-indicator ${isGestureLoading ? 'loading' : ''}`}>
-           {isGestureLoading ? '⏳ AI 初始化...' : `当前动作: ${gestureEmoji[currentGesture] || currentGesture}`}
-        </div>
-      </header>
-
       {error && <div className="error-message">{error}</div>}
 
       <div className={`camera-viewport ${isRecording ? 'recording-active' : ''}`}>
