@@ -32,6 +32,17 @@ export default function EasyCord() {
     isConvertingRef.current = isConverting;
   }, [isRecording, isConverting]);
 
+  // Sync stream to ref and video element
+  useEffect(() => {
+    if (stream) {
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play().catch(console.error);
+      }
+    }
+  }, [stream]);
+
   // Handle Recording Logic
   const startRecording = useCallback(async () => {
     if (isRecordingRef.current || isConvertingRef.current) return;

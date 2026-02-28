@@ -87,17 +87,20 @@ body {
 
 .live-video {
   z-index: 2;
-  transform: scaleX(-1); /* 镜像翻转符合人类直觉 */
+  transform: scaleX(-1);
+  display: block;
 }
 
 /* 回放模式下的层级 */
 .playback-active .live-video {
-  opacity: 0.01;
+  opacity: 0.1; /* 保持可见度以防被浏览器挂起 */
   z-index: 1;
+  pointer-events: none;
 }
 
 .playback-active .playback-video {
-  z-index: 3;
+  z-index: 5;
+  background: black; /* 确保完全盖住底下的流 */
 }
 
 .status-overlay {
