@@ -117,6 +117,14 @@ export default function EasyCord() {
     }
   }, []);
 
+  const resetRecording = useCallback(() => {
+    setVideoUrl(null);
+    setHasRecording(false);
+    setRecordingMode(null);
+    recordedBlobRef.current = null;
+    recordedChunksRef.current = [];
+  }, []);
+
   // Gesture Recognition Loop
   const animate = useCallback((time: number) => {
     if (videoRef.current && videoRef.current.readyState >= 2) {
@@ -124,7 +132,7 @@ export default function EasyCord() {
       setCurrentGesture(gesture);
       
       if (isTriggered) {
-        if (gesture === 'Thumb_Up' && !isRecordingRef.current) {
+        if (gesture === 'Thumb_Up' && !isRecordingRef.current && !videoUrl) {
           startRecording();
         } else if (gesture === 'Open_Palm' && isRecordingRef.current) {
           stopRecording();
@@ -255,13 +263,16 @@ export default function EasyCord() {
         </div>
 
         <div className="manual-controls">
-          {!isRecording ? (
+          {!isRecording && !videoUrl ? (
             <button onClick={startRecording} disabled={isConverting || cameraStatus !== 'ready'} className="primary-btn">开始录制</button>
-          ) : (
+          ) : isRecording ? (
             <button onClick={stopRecording} className="stop-btn">停止并保存</button>
+          ) : (
+            <button onClick={resetRecording} className="reset-btn">重新录制</button>
           )}
+          
           {hasRecording && !isRecording && !isConverting && (
-            <button onClick={() => downloadBlob(recordedBlobRef.current!)} className="save-btn">重新下载</button>
+            <button onClick={() => downloadBlob(recordedBlobRef.current!)} className="save-btn">下载视频</button>
           )}
         </div>
       </div>
