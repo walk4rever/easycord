@@ -71,7 +71,7 @@ self.onmessage = async (event) => {
           '-vsync', 'cfr',
           'output.mp4'
         ]);
-      } catch (error) {
+      } catch {
         postMessage({ type: 'log', message: `[FFmpeg Worker] Primary conversion failed, trying robust fallback...` });
         await ff.exec([
           '-i', 'input.webm',
