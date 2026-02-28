@@ -131,9 +131,9 @@ export default function EasyCord() {
       if (isTriggered) {
         if (gesture === 'Thumb_Up' && !isRecordingRef.current && !videoUrl) {
           startRecording();
-        } else if (gesture === 'Open_Palm' && isRecordingRef.current) {
+        } else if (gesture === 'Closed_Fist' && isRecordingRef.current) {
           stopRecording();
-        } else if (gesture === 'Thumb_Down' && !isRecordingRef.current && videoUrl) {
+        } else if (gesture === 'Open_Palm' && !isRecordingRef.current && videoUrl) {
           resetRecording();
         }
       }
@@ -233,12 +233,12 @@ export default function EasyCord() {
         )}
         {isRecording && (
           <div className="gesture-hint">
-            🖐️ 伸手掌停止录制
+            ✊ 握拳停止录制
           </div>
         )}
         {!isRecording && videoUrl && (
           <div className="gesture-hint secondary">
-            👎 拇指朝下重置
+            🖐️ 伸手掌重置
           </div>
         )}
       </div>
