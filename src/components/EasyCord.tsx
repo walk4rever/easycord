@@ -44,16 +44,11 @@ export default function EasyCord() {
     recordedBlobRef.current = null;
     const currentStream = streamRef.current;
     if (!currentStream) return;
-
     const { type: mimeType, isNativeMP4 } = getBestMimeType();
-
     if (isNativeMP4 && !isFirefox) {
       try {
         setRecordingMode('NativeMP4');
-        const recorder = new MediaRecorder(currentStream, { 
-          mimeType,
-          videoBitsPerSecond: 6_000_000
-        });
+        const recorder = new MediaRecorder(currentStream, { mimeType, videoBitsPerSecond: 6_000_000 });
         recordedChunksRef.current = [];
         recorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunksRef.current.push(e.data); };
         recorder.onstop = () => {
@@ -68,13 +63,9 @@ export default function EasyCord() {
         return;
       } catch (e) { console.warn('Native MP4 fallback', e); }
     }
-
     try {
       setRecordingMode('MediaRecorder');
-      const recorder = new MediaRecorder(currentStream, { 
-        mimeType,
-        videoBitsPerSecond: 6_000_000
-      });
+      const recorder = new MediaRecorder(currentStream, { mimeType, videoBitsPerSecond: 6_000_000 });
       recordedChunksRef.current = [];
       recorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunksRef.current.push(e.data); };
       recorder.onstop = async () => {
@@ -129,24 +120,26 @@ export default function EasyCord() {
       
       setDebugState(prev => ({ frame: prev.frame + 1, rs: readyState }));
 
-      if (readyState >= 2 && !isGestureLoading) {
-        const timestamp = video.currentTime * 1000;
-        const { gesture, isTriggered, handDetected: hasHand } = GestureManager.getInstance().processFrame(video, timestamp);
-        
-        setHandDetected(hasHand);
-        if (gesture !== 'None') {
-          setLastDetectedGesture(gesture);
-        } else if (!hasHand) {
-          setLastDetectedGesture('None');
-        }
+      if (readyState >= 2) {
+        if (!isGestureLoading) {
+          const timestamp = video.currentTime * 1000;
+          const { gesture, isTriggered, handDetected: hasHand } = GestureManager.getInstance().processFrame(video, timestamp);
+          
+          setHandDetected(hasHand);
+          if (gesture !== 'None') {
+            setLastDetectedGesture(gesture);
+          } else if (!hasHand) {
+            setLastDetectedGesture('None');
+          }
 
-        if (isTriggered) {
-          if (gesture === 'Thumb_Up' && !isRecordingRef.current && !videoUrlRef.current) {
-            startRecRef.current();
-          } else if (gesture === 'Closed_Fist' && isRecordingRef.current) {
-            stopRecRef.current();
-          } else if (gesture === 'Open_Palm' && !isRecordingRef.current && videoUrlRef.current) {
-            resetRecRef.current();
+          if (isTriggered) {
+            if (gesture === 'Thumb_Up' && !isRecordingRef.current && !videoUrlRef.current) {
+              startRecRef.current();
+            } else if (gesture === 'Closed_Fist' && isRecordingRef.current) {
+              stopRecRef.current();
+            } else if (gesture === 'Open_Palm' && !isRecordingRef.current && videoUrlRef.current) {
+              resetRecRef.current();
+            }
           }
         }
       }
@@ -154,25 +147,37 @@ export default function EasyCord() {
     requestRef.current = requestAnimationFrame(animate);
   }, [isGestureLoading]);
 
+  // AI Init Effect
   useEffect(() => {
+    console.log("[EasyCord] AI effect mount");
     const initAI = async () => {
       try {
+        console.log("[EasyCord] Calling GestureManager.init()");
         await GestureManager.getInstance().init();
+        console.log("[EasyCord] GestureManager.init() success");
         setIsGestureLoading(false);
       } catch (err) {
-        console.error("AI init failed", err);
-        setError("AI 模块加载异常，请检查网络");
+        console.error("[EasyCord] AI init failed", err);
+        setError("AI 模块异常");
       }
     };
     initAI();
     requestRef.current = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(requestRef.current);
+    return () => {
+      console.log("[EasyCord] AI effect cleanup");
+      cancelAnimationFrame(requestRef.current);
+    };
   }, [animate]);
 
+  // Video Stream Sync Effect
   useEffect(() => {
     if (stream && videoRef.current) {
+      console.log("[EasyCord] Syncing stream to video element, readyState:", videoRef.current.readyState);
       videoRef.current.srcObject = stream;
-      videoRef.current.play().catch(console.error);
+      videoRef.current.onloadedmetadata = () => {
+        console.log("[EasyCord] Video metadata loaded");
+        videoRef.current?.play().catch(e => console.error("[EasyCord] Video play failed", e));
+      };
     }
   }, [stream]);
 
@@ -183,15 +188,22 @@ export default function EasyCord() {
   };
 
   const startCamera = useCallback(async () => {
+    console.log("[EasyCord] startCamera requested");
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
       });
+      console.log("[EasyCord] getUserMedia success, tracks:", mediaStream.getTracks().length);
+      streamRef.current = mediaStream;
       setStream(mediaStream);
       setError(null);
       setCameraStatus('ready');
-    } catch { setError('摄像头权限未开启'); setCameraStatus('not-ready'); }
+    } catch (e) { 
+      console.error("[EasyCord] getUserMedia failed", e);
+      setError('摄像头权限未开启'); 
+      setCameraStatus('not-ready'); 
+    }
   }, []);
 
   const downloadBlob = (blob: Blob) => {
@@ -203,7 +215,10 @@ export default function EasyCord() {
     setTimeout(() => URL.revokeObjectURL(url), 100);
   };
 
-  useEffect(() => { startCamera(); }, [startCamera]);
+  useEffect(() => { 
+    console.log("[EasyCord] Mount Effect");
+    startCamera(); 
+  }, [startCamera]);
 
   return (
     <div className="easycord-container">

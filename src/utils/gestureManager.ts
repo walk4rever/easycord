@@ -17,15 +17,21 @@ export class GestureManager {
   }
 
   async init() {
-    if (this.recognizer) return;
+    if (this.recognizer) {
+      console.log("[GestureManager] Already initialized");
+      return;
+    }
     
-    // 使用 unpkg 镜像替代 jsdelivr/google storage 以提高国内访问速度
+    console.log("[GestureManager] Starting initialization...");
     const WASM_URL = "https://unpkg.com/@mediapipe/tasks-vision@0.10.32/wasm";
     const MODEL_URL = "https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task";
     
     try {
+      console.log("[GestureManager] Loading WASM from:", WASM_URL);
       const vision = await FilesetResolver.forVisionTasks(WASM_URL);
+      console.log("[GestureManager] WASM loaded successfully");
       
+      console.log("[GestureManager] Loading Model from:", MODEL_URL);
       this.recognizer = await GestureRecognizer.createFromOptions(vision, {
         baseOptions: {
           modelAssetPath: MODEL_URL,
@@ -37,18 +43,24 @@ export class GestureManager {
         minHandPresenceConfidence: 0.4,
         minTrackingConfidence: 0.4
       });
-      console.log("GestureRecognizer initialized");
+      console.log("[GestureManager] Model loaded and Recognizer ready (GPU)");
     } catch (e) {
-      console.error("Init failed, retrying with CPU...", e);
-      const vision = await FilesetResolver.forVisionTasks(WASM_URL);
-      this.recognizer = await GestureRecognizer.createFromOptions(vision, {
-        baseOptions: {
-          modelAssetPath: MODEL_URL,
-          delegate: "CPU"
-        },
-        runningMode: "VIDEO",
-        numHands: 1
-      });
+      console.warn("[GestureManager] GPU init failed, trying CPU fallback...", e);
+      try {
+        const vision = await FilesetResolver.forVisionTasks(WASM_URL);
+        this.recognizer = await GestureRecognizer.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath: MODEL_URL,
+            delegate: "CPU"
+          },
+          runningMode: "VIDEO",
+          numHands: 1
+        });
+        console.log("[GestureManager] Model loaded and Recognizer ready (CPU)");
+      } catch (err2) {
+        console.error("[GestureManager] Fatal: Both GPU and CPU init failed", err2);
+        throw err2;
+      }
     }
   }
 
