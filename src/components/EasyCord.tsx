@@ -122,7 +122,7 @@ export default function EasyCord() {
 
       if (readyState >= 2) {
         if (!isGestureLoading) {
-          const timestamp = video.currentTime * 1000;
+          const timestamp = performance.now();
           const { gesture, isTriggered, handDetected: hasHand } = GestureManager.getInstance().processFrame(video, timestamp);
           
           setHandDetected(hasHand);

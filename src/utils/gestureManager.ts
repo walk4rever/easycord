@@ -6,6 +6,7 @@ export class GestureManager {
   private lastGesture: string = 'None';
   private gestureCount: number = 0;
   private readonly TRIGGER_THRESHOLD = 5;
+  private lastVideoTimestamp: number = -1;
 
   private constructor() {}
 
@@ -68,13 +69,26 @@ export class GestureManager {
   processFrame(videoElement: HTMLVideoElement, timestamp: number): { gesture: string; isTriggered: boolean; handDetected: boolean } {
     if (!this.recognizer) return { gesture: 'Loading', isTriggered: false, handDetected: false };
 
+    const timestampMs = Math.floor(timestamp);
+
+    // Ensure strictly increasing timestamp to avoid MediaPipe errors
+    if (timestampMs <= this.lastVideoTimestamp) {
+      return { 
+        gesture: this.lastGesture, 
+        isTriggered: false, 
+        handDetected: this.lastGesture !== 'None' 
+      };
+    }
+    this.lastVideoTimestamp = timestampMs;
+
     try {
-      const result = this.recognizer.recognizeForVideo(videoElement, Math.floor(timestamp));
+      const result = this.recognizer.recognizeForVideo(videoElement, timestampMs);
       let currentGesture = 'None';
       const handDetected = result.landmarks && result.landmarks.length > 0;
 
       if (result.gestures && result.gestures.length > 0 && result.gestures[0].length > 0) {
         currentGesture = result.gestures[0][0].categoryName;
+        // console.log("Detected Gesture:", currentGesture); // Debug log
       }
 
       if (currentGesture === this.lastGesture && currentGesture !== 'None') {
@@ -89,7 +103,8 @@ export class GestureManager {
         isTriggered: this.gestureCount === this.TRIGGER_THRESHOLD, 
         handDetected 
       };
-    } catch {
+    } catch (e) {
+      console.warn("[GestureManager] Recognition failed", e);
       return { gesture: 'Error', isTriggered: false, handDetected: false };
     }
   }
