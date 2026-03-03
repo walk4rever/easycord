@@ -41,22 +41,34 @@ export class GestureManager {
         console.log("[GestureManager] WASM loaded successfully");
         
         console.log("[GestureManager] Loading LOCAL Model from:", MODEL_PATH);
-        this.recognizer = await GestureRecognizer.createFromOptions(vision, {
-          baseOptions: {
-            modelAssetPath: MODEL_PATH,
-            delegate: "GPU"
-          },
-          runningMode: "VIDEO",
-          numHands: 1,
-          minHandDetectionConfidence: 0.4,
-          minHandPresenceConfidence: 0.4,
-          minTrackingConfidence: 0.4
-        });
-        console.log("[GestureManager] Model loaded and Recognizer ready (GPU)");
-      } catch (e) {
-        console.warn("[GestureManager] GPU init failed, trying CPU fallback...", e);
+        
+        // Add timeout for GPU initialization
+        const createRecognizerWithTimeout = async (options: any, timeoutMs: number) => {
+          return Promise.race([
+            GestureRecognizer.createFromOptions(vision, options),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error(`Initialization timed out after ${timeoutMs}ms`)), timeoutMs)
+            )
+          ]);
+        };
+
         try {
-          const vision = await FilesetResolver.forVisionTasks(WASM_URL);
+          this.recognizer = await createRecognizerWithTimeout({
+            baseOptions: {
+              modelAssetPath: MODEL_PATH,
+              delegate: "GPU"
+            },
+            runningMode: "VIDEO",
+            numHands: 1,
+            minHandDetectionConfidence: 0.4,
+            minHandPresenceConfidence: 0.4,
+            minTrackingConfidence: 0.4
+          }, 5000) as GestureRecognizer; // 5s timeout for GPU
+          
+          console.log("[GestureManager] Model loaded and Recognizer ready (GPU)");
+        } catch (gpuError) {
+          console.warn("[GestureManager] GPU init failed or timed out, trying CPU fallback...", gpuError);
+          // Fallback to CPU
           this.recognizer = await GestureRecognizer.createFromOptions(vision, {
             baseOptions: {
               modelAssetPath: MODEL_PATH,
@@ -66,11 +78,12 @@ export class GestureManager {
             numHands: 1
           });
           console.log("[GestureManager] Model loaded and Recognizer ready (CPU)");
-        } catch (err2) {
-          console.error("[GestureManager] Fatal: Both GPU and CPU init failed", err2);
-          this.initPromise = null; // Reset promise on failure so we can retry
-          throw err2;
         }
+
+      } catch (e) {
+        console.error("[GestureManager] Fatal: Initialization failed", e);
+        this.initPromise = null;
+        throw e;
       }
     })();
 
