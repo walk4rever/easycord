@@ -10,7 +10,17 @@ export default function EasyCord() {
   const [error, setError] = useState<string | null>(null);
   const [isConverting, setIsConverting] = useState(false);
   const [convertMessage, setConvertMessage] = useState('就绪');
-  const [recordingMode, setRecordingMode] = useState<'NativeMP4' | 'WebCodecs' | 'MediaRecorder' | null>(null);
+  const getBestMimeType = () => {
+    const mp4Types = ['video/mp4;codecs=avc1.640028,mp4a.40.2', 'video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4'];
+    for (const type of mp4Types) if (MediaRecorder.isTypeSupported(type)) return { type, isNativeMP4: true };
+    return { type: 'video/webm', isNativeMP4: false };
+  };
+
+  const [recordingMode, setRecordingMode] = useState<'NativeMP4' | 'WebCodecs' | 'MediaRecorder' | null>(() => {
+    // Initial capability check
+    const { isNativeMP4 } = getBestMimeType();
+    return isNativeMP4 && !navigator.userAgent.toLowerCase().includes('firefox') ? 'NativeMP4' : null;
+  });
   
   // Gesture & AI States
   const [isGestureLoading, setIsGestureLoading] = useState(true);
@@ -181,12 +191,6 @@ export default function EasyCord() {
       };
     }
   }, [stream]);
-
-  const getBestMimeType = () => {
-    const mp4Types = ['video/mp4;codecs=avc1.640028,mp4a.40.2', 'video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4'];
-    for (const type of mp4Types) if (MediaRecorder.isTypeSupported(type)) return { type, isNativeMP4: true };
-    return { type: 'video/webm', isNativeMP4: false };
-  };
 
   const startCamera = useCallback(async () => {
     console.log("[EasyCord] startCamera requested");
