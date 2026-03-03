@@ -4,10 +4,11 @@ export class GestureManager {
   private static instance: GestureManager;
   private recognizer: GestureRecognizer | null = null;
   private lastGesture: string = 'None';
-  private gestureCount: number = 0;
-  private readonly TRIGGER_THRESHOLD = 5;
+  private gestureStartTime: number = 0;
+  private readonly TRIGGER_DURATION = 3000; // 3 seconds in ms
   private lastVideoTimestamp: number = -1;
   private initPromise: Promise<void> | null = null;
+  private hasTriggered: boolean = false; // Prevent multiple triggers for the same hold
 
   private constructor() {}
 
@@ -90,8 +91,8 @@ export class GestureManager {
     return this.initPromise;
   }
 
-  processFrame(videoElement: HTMLVideoElement, timestamp: number): { gesture: string; isTriggered: boolean; handDetected: boolean } {
-    if (!this.recognizer) return { gesture: 'Loading', isTriggered: false, handDetected: false };
+  processFrame(videoElement: HTMLVideoElement, timestamp: number): { gesture: string; isTriggered: boolean; handDetected: boolean; progress: number } {
+    if (!this.recognizer) return { gesture: 'Loading', isTriggered: false, handDetected: false, progress: 0 };
 
     const timestampMs = Math.floor(timestamp);
 
@@ -100,7 +101,8 @@ export class GestureManager {
       return { 
         gesture: this.lastGesture, 
         isTriggered: false, 
-        handDetected: this.lastGesture !== 'None' 
+        handDetected: this.lastGesture !== 'None',
+        progress: 0
       };
     }
     this.lastVideoTimestamp = timestampMs;
@@ -112,24 +114,37 @@ export class GestureManager {
 
       if (result.gestures && result.gestures.length > 0 && result.gestures[0].length > 0) {
         currentGesture = result.gestures[0][0].categoryName;
-        // console.log("Detected Gesture:", currentGesture); // Debug log
       }
 
+      let progress = 0;
+      let isTriggered = false;
+
       if (currentGesture === this.lastGesture && currentGesture !== 'None') {
-        this.gestureCount++;
+        const duration = timestampMs - this.gestureStartTime;
+        progress = Math.min(duration / this.TRIGGER_DURATION, 1);
+        
+        if (duration >= this.TRIGGER_DURATION) {
+          if (!this.hasTriggered) {
+            isTriggered = true;
+            this.hasTriggered = true;
+          }
+        }
       } else {
         this.lastGesture = currentGesture;
-        this.gestureCount = 0;
+        this.gestureStartTime = timestampMs;
+        this.hasTriggered = false;
+        progress = 0;
       }
 
       return { 
         gesture: currentGesture, 
-        isTriggered: this.gestureCount === this.TRIGGER_THRESHOLD, 
-        handDetected 
+        isTriggered, 
+        handDetected,
+        progress
       };
     } catch (e) {
       console.warn("[GestureManager] Recognition failed", e);
-      return { gesture: 'Error', isTriggered: false, handDetected: false };
+      return { gesture: 'Error', isTriggered: false, handDetected: false, progress: 0 };
     }
   }
 }

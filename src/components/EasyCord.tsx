@@ -26,6 +26,7 @@ export default function EasyCord() {
   const [isGestureLoading, setIsGestureLoading] = useState(true);
   const [lastDetectedGesture, setLastDetectedGesture] = useState('None');
   const [handDetected, setHandDetected] = useState(false);
+  const [gestureProgress, setGestureProgress] = useState(0);
   const [debugState, setDebugState] = useState<{frame: number, rs: number}>({frame: 0, rs: 0});
 
   const isFirefox = navigator.userAgent.toLowerCase().includes('firefox');
@@ -133,9 +134,11 @@ export default function EasyCord() {
       if (readyState >= 2) {
         if (!isGestureLoading) {
           const timestamp = performance.now();
-          const { gesture, isTriggered, handDetected: hasHand } = GestureManager.getInstance().processFrame(video, timestamp);
+          const { gesture, isTriggered, handDetected: hasHand, progress } = GestureManager.getInstance().processFrame(video, timestamp);
           
           setHandDetected(hasHand);
+          setGestureProgress(progress);
+
           if (gesture !== 'None') {
             setLastDetectedGesture(gesture);
           } else if (!hasHand) {
@@ -234,6 +237,28 @@ export default function EasyCord() {
         <div className="status-overlay">
           {isRecording && <div className="status-badge rec"><span className="blink-dot">●</span> REC</div>}
           {!isRecording && !videoUrl && cameraStatus === 'ready' && <div className="status-badge ready">READY</div>}
+          
+          {/* Gesture Hold Progress Indicator */}
+          {gestureProgress > 0 && lastDetectedGesture !== 'None' && (
+            <div className="gesture-progress-indicator" style={{
+              position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+              zIndex: 100, pointerEvents: 'none'
+            }}>
+              <svg width="80" height="80" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="8" />
+                <circle cx="50" cy="50" r="45" fill="none" stroke="var(--success)" strokeWidth="8"
+                  strokeDasharray={`${2 * Math.PI * 45}`}
+                  strokeDashoffset={`${2 * Math.PI * 45 * (1 - gestureProgress)}`}
+                  transform="rotate(-90 50 50)"
+                  style={{ transition: 'stroke-dashoffset 0.1s linear' }}
+                />
+                <text x="50" y="55" textAnchor="middle" fill="white" fontSize="20" fontWeight="bold">
+                  {Math.ceil((1 - gestureProgress) * 3)}s
+                </text>
+              </svg>
+            </div>
+          )}
+
           <div className="debug-dashboard" style={{
             fontSize: '0.6rem', background: 'rgba(0,0,0,0.6)', padding: '4px 8px', borderRadius: '8px', marginTop: '6px', color: 'white',
             display: 'flex', flexDirection: 'column', gap: '2px', fontFamily: 'monospace'
@@ -251,9 +276,9 @@ export default function EasyCord() {
             </div>
           </div>
         </div>
-        {!isRecording && !videoUrl && !isGestureLoading && <div className="gesture-hint">👍 比赞开始录制</div>}
-        {isRecording && <div className="gesture-hint">✊ 握拳停止录制</div>}
-        {!isRecording && videoUrl && <div className="gesture-hint secondary">🖐️ 伸手掌重置</div>}
+        {!isRecording && !videoUrl && !isGestureLoading && <div className="gesture-hint">👍 比赞保持3秒开始录制</div>}
+        {isRecording && <div className="gesture-hint">✊ 握拳保持3秒停止录制</div>}
+        {!isRecording && videoUrl && <div className="gesture-hint secondary">🖐️ 伸手掌保持3秒重置</div>}
       </div>
       <div className="controls-section">
         <div className="status-panel">
