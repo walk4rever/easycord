@@ -159,6 +159,7 @@ export default function EasyCord() {
       } catch (err) {
         console.error("[EasyCord] AI init failed", err);
         setError("AI 模块异常");
+        setIsGestureLoading(false);
       }
     };
     initAI();
@@ -241,8 +242,8 @@ export default function EasyCord() {
               <span>GEST: {lastDetectedGesture}</span>
               <span>FPS: {debugState.frame}</span>
             </div>
-            <div style={{ color: isGestureLoading ? 'var(--warning)' : 'var(--success)', textAlign: 'right', fontSize: '0.5rem' }}>
-              {isGestureLoading ? 'AI LOADING...' : 'AI ACTIVE'}
+            <div style={{ color: isGestureLoading ? 'var(--warning)' : (error?.includes('AI') ? 'red' : 'var(--success)'), textAlign: 'right', fontSize: '0.5rem' }}>
+              {isGestureLoading ? 'AI LOADING...' : (error?.includes('AI') ? 'AI ERROR' : 'AI ACTIVE')}
             </div>
           </div>
         </div>
