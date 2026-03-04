@@ -29,6 +29,13 @@ export default function EasyCord() {
   const [gestureProgress, setGestureProgress] = useState(0);
   const [debugState, setDebugState] = useState<{frame: number, rs: number}>({frame: 0, rs: 0});
 
+  const [isDeviceModalOpen, setIsDeviceModalOpen] = useState(false);
+  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
+  const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedVideoDeviceId, setSelectedVideoDeviceId] = useState('');
+  const [selectedAudioDeviceId, setSelectedAudioDeviceId] = useState('');
+  const [isDeviceListLoading, setIsDeviceListLoading] = useState(false);
+
   const isFirefox = navigator.userAgent.toLowerCase().includes('firefox');
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -47,6 +54,13 @@ export default function EasyCord() {
     isConvertingRef.current = isConverting;
     videoUrlRef.current = videoUrl;
   }, [isRecording, isConverting, videoUrl]);
+
+  const stopStreamTracks = useCallback((mediaStream: MediaStream | null) => {
+    if (!mediaStream) return;
+    for (const track of mediaStream.getTracks()) {
+      track.stop();
+    }
+  }, []);
 
   // Handle Recording Logic
   const startRecording = useCallback(async () => {
@@ -195,24 +209,81 @@ export default function EasyCord() {
     }
   }, [stream]);
 
-  const startCamera = useCallback(async () => {
+  const startCamera = useCallback(async (options?: { videoDeviceId?: string; audioDeviceId?: string }) => {
     console.log("[EasyCord] startCamera requested");
+    setCameraStatus('loading');
     try {
+      stopStreamTracks(streamRef.current);
       const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          frameRate: { ideal: 30 },
+          ...(options?.videoDeviceId ? { deviceId: { exact: options.videoDeviceId } } : {})
+        },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          ...(options?.audioDeviceId ? { deviceId: { exact: options.audioDeviceId } } : {})
+        }
       });
       console.log("[EasyCord] getUserMedia success, tracks:", mediaStream.getTracks().length);
       streamRef.current = mediaStream;
       setStream(mediaStream);
       setError(null);
       setCameraStatus('ready');
+      const activeVideoDeviceId = mediaStream.getVideoTracks()[0]?.getSettings().deviceId;
+      const activeAudioDeviceId = mediaStream.getAudioTracks()[0]?.getSettings().deviceId;
+      if (activeVideoDeviceId) setSelectedVideoDeviceId(activeVideoDeviceId);
+      if (activeAudioDeviceId) setSelectedAudioDeviceId(activeAudioDeviceId);
     } catch (e) { 
       console.error("[EasyCord] getUserMedia failed", e);
       setError('摄像头权限未开启'); 
       setCameraStatus('not-ready'); 
     }
-  }, []);
+  }, [stopStreamTracks]);
+
+  const refreshDeviceList = useCallback(async () => {
+    if (!navigator.mediaDevices?.enumerateDevices) return;
+    setIsDeviceListLoading(true);
+    try {
+      let devices = await navigator.mediaDevices.enumerateDevices();
+      const hasLabels = devices.some(d => Boolean(d.label));
+      if (!hasLabels) {
+        const temp = await navigator.mediaDevices.getUserMedia({ video: true, audio: true }).catch(() => null);
+        if (temp) {
+          stopStreamTracks(temp);
+          devices = await navigator.mediaDevices.enumerateDevices();
+        }
+      }
+
+      const videos = devices.filter(d => d.kind === 'videoinput');
+      const audios = devices.filter(d => d.kind === 'audioinput');
+      setVideoDevices(videos);
+      setAudioDevices(audios);
+
+      if (!selectedVideoDeviceId && videos[0]?.deviceId) setSelectedVideoDeviceId(videos[0].deviceId);
+      if (!selectedAudioDeviceId && audios[0]?.deviceId) setSelectedAudioDeviceId(audios[0].deviceId);
+    } finally {
+      setIsDeviceListLoading(false);
+    }
+  }, [selectedAudioDeviceId, selectedVideoDeviceId, stopStreamTracks]);
+
+  const openDeviceModal = useCallback(async () => {
+    if (isRecordingRef.current || isConvertingRef.current) return;
+    setIsDeviceModalOpen(true);
+    await refreshDeviceList();
+  }, [refreshDeviceList]);
+
+  const applyDeviceSelection = useCallback(async () => {
+    if (isRecordingRef.current || isConvertingRef.current) return;
+    await startCamera({
+      videoDeviceId: selectedVideoDeviceId || undefined,
+      audioDeviceId: selectedAudioDeviceId || undefined
+    });
+    setIsDeviceModalOpen(false);
+  }, [selectedAudioDeviceId, selectedVideoDeviceId, startCamera]);
 
   const downloadBlob = (blob: Blob) => {
     const url = URL.createObjectURL(blob);
@@ -285,8 +356,72 @@ export default function EasyCord() {
           <p>模式: {recordingMode === 'NativeMP4' ? '原生 MP4' : '兼容模式'}</p>
           <p>状态: <span className="action">{isConverting ? convertMessage : (isRecording ? '录制中' : (videoUrl ? '回放中' : '就绪'))}</span></p>
         </div>
-        <div className="manual-controls"><span className="gesture-only-tag">PURE GESTURE MODE</span></div>
+        <div className="manual-controls">
+          <button
+            type="button"
+            className="device-settings-button"
+            onClick={openDeviceModal}
+            disabled={isRecording || isConverting || cameraStatus === 'loading'}
+          >
+            设备设置
+          </button>
+        </div>
       </div>
+
+      {isDeviceModalOpen && (
+        <div className="device-modal-backdrop" role="dialog" aria-modal="true">
+          <div className="device-modal">
+            <div className="device-modal-header">
+              <div className="device-modal-title">选择输入设备</div>
+              <button type="button" className="device-modal-close" onClick={() => setIsDeviceModalOpen(false)}>×</button>
+            </div>
+            <div className="device-modal-body">
+              <label className="device-field">
+                <div className="device-field-label">摄像头</div>
+                <select
+                  value={selectedVideoDeviceId}
+                  onChange={(e) => setSelectedVideoDeviceId(e.target.value)}
+                  disabled={isDeviceListLoading}
+                >
+                  {videoDevices.length === 0 && <option value="">未检测到摄像头</option>}
+                  {videoDevices.map((d, idx) => (
+                    <option key={d.deviceId} value={d.deviceId}>
+                      {d.label || `摄像头 ${idx + 1}`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="device-field">
+                <div className="device-field-label">麦克风</div>
+                <select
+                  value={selectedAudioDeviceId}
+                  onChange={(e) => setSelectedAudioDeviceId(e.target.value)}
+                  disabled={isDeviceListLoading}
+                >
+                  {audioDevices.length === 0 && <option value="">未检测到麦克风</option>}
+                  {audioDevices.map((d, idx) => (
+                    <option key={d.deviceId} value={d.deviceId}>
+                      {d.label || `麦克风 ${idx + 1}`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="device-modal-footer">
+              <button type="button" className="device-modal-secondary" onClick={refreshDeviceList} disabled={isDeviceListLoading}>
+                刷新
+              </button>
+              <button type="button" className="device-modal-secondary" onClick={() => setIsDeviceModalOpen(false)}>
+                取消
+              </button>
+              <button type="button" className="device-modal-primary" onClick={applyDeviceSelection} disabled={isDeviceListLoading}>
+                应用
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

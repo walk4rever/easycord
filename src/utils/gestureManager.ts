@@ -44,10 +44,11 @@ export class GestureManager {
         console.log("[GestureManager] Loading LOCAL Model from:", MODEL_PATH);
         
         // Add timeout for GPU initialization
-        const createRecognizerWithTimeout = async (options: any, timeoutMs: number) => {
+        type GestureRecognizerCreateOptions = Parameters<typeof GestureRecognizer.createFromOptions>[1];
+        const createRecognizerWithTimeout = async (options: GestureRecognizerCreateOptions, timeoutMs: number): Promise<GestureRecognizer> => {
           return Promise.race([
             GestureRecognizer.createFromOptions(vision, options),
-            new Promise((_, reject) => 
+            new Promise<GestureRecognizer>((_, reject) => 
               setTimeout(() => reject(new Error(`Initialization timed out after ${timeoutMs}ms`)), timeoutMs)
             )
           ]);
@@ -64,7 +65,7 @@ export class GestureManager {
             minHandDetectionConfidence: 0.4,
             minHandPresenceConfidence: 0.4,
             minTrackingConfidence: 0.4
-          }, 5000) as GestureRecognizer; // 5s timeout for GPU
+          }, 5000); // 5s timeout for GPU
           
           console.log("[GestureManager] Model loaded and Recognizer ready (GPU)");
         } catch (gpuError) {

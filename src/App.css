@@ -221,3 +221,123 @@ body {
   padding: 4px 12px;
   border-radius: 4px;
 }
+
+.device-settings-button {
+  font-size: 0.75rem;
+  color: var(--accent-strong);
+  background: rgba(126, 225, 196, 0.08);
+  border: 1px solid rgba(126, 225, 196, 0.22);
+  padding: 6px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.device-settings-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.device-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+}
+
+.device-modal {
+  width: min(520px, 96vw);
+  background: rgba(21, 25, 34, 0.98);
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+}
+
+.device-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.device-modal-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.device-modal-close {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid var(--panel-border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.device-modal-body {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.device-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.device-field-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.device-field select {
+  width: 100%;
+  padding: 10px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--panel-border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  outline: none;
+}
+
+.device-modal-footer {
+  padding: 12px 14px;
+  border-top: 1px solid var(--panel-border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.device-modal-primary,
+.device-modal-secondary {
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--panel-border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.75rem;
+}
+
+.device-modal-primary {
+  background: rgba(126, 225, 196, 0.12);
+  border: 1px solid rgba(126, 225, 196, 0.25);
+  color: var(--accent-strong);
+}
+
+.device-modal-primary:disabled,
+.device-modal-secondary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
