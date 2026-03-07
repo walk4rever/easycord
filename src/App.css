@@ -341,3 +341,73 @@ body {
   opacity: 0.55;
   cursor: not-allowed;
 }
+
+/* Highlight Marked Feedback */
+.highlight-marked-feedback {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(126, 225, 196, 0.95);
+  color: #064e3b;
+  padding: 12px 28px;
+  border-radius: 30px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  z-index: 100;
+  animation: highlightPulse 0.3s ease-out;
+  box-shadow: 0 4px 20px rgba(126, 225, 196, 0.4);
+}
+
+@keyframes highlightPulse {
+  0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+  50% { transform: translate(-50%, -50%) scale(1.1); }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+/* Highlights Panel */
+.highlights-panel {
+  position: absolute;
+  bottom: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(14, 16, 21, 0.9);
+  border: 1px solid rgba(126, 225, 196, 0.3);
+  border-radius: 12px;
+  padding: 10px 14px;
+  z-index: 15;
+  backdrop-filter: blur(8px);
+  max-width: 90%;
+}
+
+.highlights-title {
+  font-size: 0.7rem;
+  color: var(--accent-strong);
+  margin-bottom: 8px;
+  text-align: center;
+  font-weight: 500;
+}
+
+.highlights-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+
+.highlight-time-btn {
+  background: rgba(126, 225, 196, 0.15);
+  border: 1px solid rgba(126, 225, 196, 0.4);
+  color: var(--accent-strong);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-family: monospace;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.highlight-time-btn:hover {
+  background: rgba(126, 225, 196, 0.3);
+  transform: scale(1.05);
+}

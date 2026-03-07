@@ -49,11 +49,35 @@ export default function EasyCord() {
   const isConvertingRef = useRef(isConverting);
   const videoUrlRef = useRef(videoUrl);
 
+  // Highlight feature states
+  const [highlights, setHighlights] = useState<number[]>([]);
+  const [showMarkedFeedback, setShowMarkedFeedback] = useState(false);
+  const recordingStartTimeRef = useRef<number>(0);
+  const playbackVideoRef = useRef<HTMLVideoElement>(null);
+  const showFeedbackTimeoutRef = useRef<number | null>(null);
+
   useEffect(() => {
     isRecordingRef.current = isRecording;
     isConvertingRef.current = isConverting;
     videoUrlRef.current = videoUrl;
+
+    // Track recording start time
+    if (isRecording && recordingStartTimeRef.current === 0) {
+      recordingStartTimeRef.current = Date.now();
+    } else if (!isRecording) {
+      // Reset when recording stops
+      recordingStartTimeRef.current = 0;
+    }
   }, [isRecording, isConverting, videoUrl]);
+
+  // Clean up feedback timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (showFeedbackTimeoutRef.current) {
+        clearTimeout(showFeedbackTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const stopStreamTracks = useCallback((mediaStream: MediaStream | null) => {
     if (!mediaStream) return;
@@ -166,6 +190,18 @@ export default function EasyCord() {
               stopRecRef.current();
             } else if (gesture === 'Open_Palm' && !isRecordingRef.current && videoUrlRef.current) {
               resetRecRef.current();
+            } else if (gesture === 'Victory' && isRecordingRef.current) {
+              // V gesture marks a highlight during recording
+              const relativeTime = (Date.now() - recordingStartTimeRef.current) / 1000;
+              setHighlights(prev => [...prev, relativeTime]);
+              // Show feedback UI
+              setShowMarkedFeedback(true);
+              if (showFeedbackTimeoutRef.current) {
+                clearTimeout(showFeedbackTimeoutRef.current);
+              }
+              showFeedbackTimeoutRef.current = window.setTimeout(() => {
+                setShowMarkedFeedback(false);
+              }, 1500);
             }
           }
         }
@@ -304,7 +340,7 @@ export default function EasyCord() {
       {error && <div className="error-message">{error}</div>}
       <div className={`camera-viewport ${isRecording ? 'recording-active' : ''} ${videoUrl && !isRecording ? 'playback-active' : ''}`}>
         <video ref={videoRef} autoPlay muted playsInline className="live-video" />
-        {videoUrl && !isRecording && <video src={videoUrl} controls autoPlay className="playback-video" />}
+        {videoUrl && !isRecording && <video ref={playbackVideoRef} src={videoUrl} controls autoPlay className="playback-video" />}
         <div className="status-overlay">
           {isRecording && <div className="status-badge rec"><span className="blink-dot">●</span> REC</div>}
           {!isRecording && !videoUrl && cameraStatus === 'ready' && <div className="status-badge ready">READY</div>}
@@ -346,10 +382,40 @@ export default function EasyCord() {
               {isGestureLoading ? 'AI LOADING...' : (error?.includes('AI') ? 'AI ERROR' : 'AI ACTIVE')}
             </div>
           </div>
+
+          {/* Point Marked Feedback */}
+          {showMarkedFeedback && (
+            <div className="highlight-marked-feedback">
+              ✌️ Point Marked!
+            </div>
+          )}
         </div>
         {!isRecording && !videoUrl && !isGestureLoading && <div className="gesture-hint">👍 比赞保持3秒开始录制</div>}
-        {isRecording && <div className="gesture-hint">✊ 握拳保持3秒停止录制</div>}
+        {isRecording && <div className="gesture-hint">✊ 握拳停止 | ✌️ V手势标记片段</div>}
         {!isRecording && videoUrl && <div className="gesture-hint secondary">🖐️ 伸手掌保持3秒重置</div>}
+        
+        {/* Highlights Display in Playback Mode */}
+        {!isRecording && videoUrl && highlights.length > 0 && (
+          <div className="highlights-panel">
+            <div className="highlights-title">精彩片段</div>
+            <div className="highlights-list">
+              {highlights.map((time, index) => (
+                <button
+                  key={index}
+                  className="highlight-time-btn"
+                  onClick={() => {
+                    if (playbackVideoRef.current) {
+                      playbackVideoRef.current.currentTime = time;
+                      playbackVideoRef.current.play();
+                    }
+                  }}
+                >
+                  {Math.floor(time / 60).toString().padStart(2, '0')}:{(time % 60).toFixed(1).padStart(4, '0')}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
       <div className="controls-section">
         <div className="status-panel">
