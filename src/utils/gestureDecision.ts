@@ -14,6 +14,7 @@ export type GestureDecisionOutput = {
 };
 
 const INTERRUPTION_GRACE_MS = 220;
+const WRONG_GESTURE_GRACE_MS = 90;
 
 export class GestureDecisionEngine {
   private activeGesture: GestureName = 'None';
@@ -21,6 +22,7 @@ export class GestureDecisionEngine {
   private readonly triggerDurationMs: number;
   private hasTriggered = false;
   private interruptionStartTime: number | null = null;
+  private pendingGesture: GestureName = 'None';
 
   constructor(triggerDurationMs = 3000) {
     this.triggerDurationMs = triggerDurationMs;
@@ -31,6 +33,7 @@ export class GestureDecisionEngine {
     this.gestureStartTime = timestampMs;
     this.hasTriggered = false;
     this.interruptionStartTime = null;
+    this.pendingGesture = 'None';
   }
 
   process(input: GestureDecisionInput): GestureDecisionOutput {
@@ -40,14 +43,21 @@ export class GestureDecisionEngine {
       this.resetTo(gesture, timestampMs);
     } else if (gesture === this.activeGesture) {
       this.interruptionStartTime = null;
+      this.pendingGesture = 'None';
     } else if (gesture === 'None' || !handDetected) {
+      this.pendingGesture = 'None';
       if (this.interruptionStartTime === null) {
         this.interruptionStartTime = timestampMs;
       } else if (timestampMs - this.interruptionStartTime > INTERRUPTION_GRACE_MS) {
         this.resetTo('None', timestampMs);
       }
     } else {
-      this.resetTo(gesture, timestampMs);
+      if (this.pendingGesture !== gesture) {
+        this.pendingGesture = gesture;
+        this.interruptionStartTime = timestampMs;
+      } else if (this.interruptionStartTime !== null && timestampMs - this.interruptionStartTime > WRONG_GESTURE_GRACE_MS) {
+        this.resetTo(gesture, timestampMs);
+      }
     }
 
     let progress = 0;
