@@ -11,6 +11,7 @@ const workerScope = self as DedicatedWorkerGlobalScope;
 let ffmpeg: FFmpeg | null = null;
 let isLoading = false;
 let loadPromise: Promise<FFmpeg> | null = null;
+let preloadExecPromise: Promise<void> | null = null;
 
 async function loadFFmpeg(): Promise<FFmpeg> {
   if (ffmpeg && ffmpeg.loaded) return ffmpeg;
@@ -44,7 +45,11 @@ self.onmessage = async (event) => {
 
   if (type === 'preload') {
     try {
-      await loadFFmpeg();
+      const ff = await loadFFmpeg();
+      if (!preloadExecPromise) {
+        preloadExecPromise = ff.exec(['-version']).then(() => undefined);
+      }
+      await preloadExecPromise;
     } catch (error) {
       postMessage({ type: 'log', message: `[FFmpeg Worker] Preload failed: ${error instanceof Error ? error.message : String(error)}` });
     }
