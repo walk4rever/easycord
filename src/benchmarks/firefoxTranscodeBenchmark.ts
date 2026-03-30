@@ -11,7 +11,16 @@ interface SampleVideo {
   teardown: () => Promise<void>;
 }
 
-const SAMPLE_DURATION_MS = 3000;
+interface ScenarioResult {
+  coldMs: number;
+  warmMs: number;
+  warmMinMs: number;
+  warmMaxMs: number;
+  inputBytes: number;
+  outputBytes: number;
+}
+
+const SAMPLE_DURATIONS_MS = [1000, 3000];
 const WIDTH = 640;
 const HEIGHT = 360;
 const FPS = 30;
@@ -42,7 +51,7 @@ async function createSilentAudioTrack() {
   };
 }
 
-async function recordSyntheticWebM(): Promise<SampleVideo> {
+async function recordSyntheticWebM(durationMs: number): Promise<SampleVideo> {
   const canvas = document.createElement('canvas');
   canvas.width = WIDTH;
   canvas.height = HEIGHT;
@@ -71,7 +80,7 @@ async function recordSyntheticWebM(): Promise<SampleVideo> {
   const startedAt = performance.now();
   const paint = () => {
     const elapsed = performance.now() - startedAt;
-    const progress = Math.min(1, elapsed / SAMPLE_DURATION_MS);
+    const progress = Math.min(1, elapsed / durationMs);
     const hue = Math.round(progress * 300);
     context.fillStyle = `hsl(${hue}, 70%, 52%)`;
     context.fillRect(0, 0, WIDTH, HEIGHT);
@@ -81,13 +90,13 @@ async function recordSyntheticWebM(): Promise<SampleVideo> {
     context.font = 'bold 28px sans-serif';
     context.fillText('EasyCord Firefox MP4 Bench', 32, 42);
     context.font = '20px monospace';
-    context.fillText(`frame-progress=${progress.toFixed(4)}`, 32, HEIGHT - 40);
-    if (elapsed < SAMPLE_DURATION_MS) requestAnimationFrame(paint);
+    context.fillText(`duration=${durationMs} progress=${progress.toFixed(4)}`, 32, HEIGHT - 40);
+    if (elapsed < durationMs) requestAnimationFrame(paint);
   };
 
   paint();
   recorder.start(250);
-  await new Promise<void>((resolve) => setTimeout(resolve, SAMPLE_DURATION_MS));
+  await new Promise<void>((resolve) => setTimeout(resolve, durationMs));
 
   const blob = await new Promise<Blob>((resolve, reject) => {
     recorder.onstop = () => resolve(new Blob(chunks, { type: mimeType }));
@@ -110,9 +119,9 @@ async function measureConversion(webmBlob: Blob) {
   return { elapsedMs: performance.now() - startedAt, outputBytes: mp4Blob.size };
 }
 
-async function runBenchmark() {
+async function runScenario(durationMs: number): Promise<ScenarioResult> {
   void primeVideoConverter();
-  const sample = await recordSyntheticWebM();
+  const sample = await recordSyntheticWebM(durationMs);
   try {
     const cold = await measureConversion(sample.blob);
     const warmRuns: number[] = [];
@@ -124,21 +133,45 @@ async function runBenchmark() {
       warmOutputBytes = warm.outputBytes;
     }
 
-    window.__firefoxTranscodeBenchmarkResult = {
-      warm_transcode_ms: Number(median(warmRuns).toFixed(3)),
-      cold_transcode_ms: Number(cold.elapsedMs.toFixed(3)),
-      warm_min_ms: Number(Math.min(...warmRuns).toFixed(3)),
-      warm_max_ms: Number(Math.max(...warmRuns).toFixed(3)),
-      input_bytes: sample.blob.size,
-      output_bytes: warmOutputBytes,
-      sample_duration_ms: SAMPLE_DURATION_MS,
-      fps: FPS,
-      width: WIDTH,
-      height: HEIGHT,
+    return {
+      coldMs: cold.elapsedMs,
+      warmMs: median(warmRuns),
+      warmMinMs: Math.min(...warmRuns),
+      warmMaxMs: Math.max(...warmRuns),
+      inputBytes: sample.blob.size,
+      outputBytes: warmOutputBytes,
     };
   } finally {
     await sample.teardown();
   }
+}
+
+async function runBenchmark() {
+  const scenarioEntries: Array<readonly [number, ScenarioResult]> = [];
+  for (const durationMs of SAMPLE_DURATIONS_MS) {
+    scenarioEntries.push([durationMs, await runScenario(durationMs)] as const);
+  }
+
+  const scenarios = Object.fromEntries(scenarioEntries);
+  const coldValues = scenarioEntries.map(([, result]) => result.coldMs);
+  const warmValues = scenarioEntries.map(([, result]) => result.warmMs);
+
+  window.__firefoxTranscodeBenchmarkResult = {
+    cold_transcode_ms: Number((coldValues.reduce((sum, value) => sum + value, 0) / coldValues.length).toFixed(3)),
+    warm_transcode_ms: Number((warmValues.reduce((sum, value) => sum + value, 0) / warmValues.length).toFixed(3)),
+    short_cold_transcode_ms: Number(scenarios[1000].coldMs.toFixed(3)),
+    long_cold_transcode_ms: Number(scenarios[3000].coldMs.toFixed(3)),
+    short_warm_transcode_ms: Number(scenarios[1000].warmMs.toFixed(3)),
+    long_warm_transcode_ms: Number(scenarios[3000].warmMs.toFixed(3)),
+    warm_min_ms: Number(Math.min(...scenarioEntries.map(([, result]) => result.warmMinMs)).toFixed(3)),
+    warm_max_ms: Number(Math.max(...scenarioEntries.map(([, result]) => result.warmMaxMs)).toFixed(3)),
+    input_bytes: Number((scenarioEntries.reduce((sum, [, result]) => sum + result.inputBytes, 0) / scenarioEntries.length).toFixed(3)),
+    output_bytes: Number((scenarioEntries.reduce((sum, [, result]) => sum + result.outputBytes, 0) / scenarioEntries.length).toFixed(3)),
+    scenario_count: SAMPLE_DURATIONS_MS.length,
+    fps: FPS,
+    width: WIDTH,
+    height: HEIGHT,
+  };
 }
 
 runBenchmark().catch((error) => {

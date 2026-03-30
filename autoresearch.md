@@ -23,7 +23,13 @@ We are optimizing that realistic Firefox-compatible path without cheating on the
 ## How to Run
 `./autoresearch.sh`
 
-The benchmark starts a local Vite server, opens Firefox headlessly through Playwright, generates a deterministic synthetic WebM sample in-browser, then runs the actual app conversion code and prints `METRIC` lines.
+The benchmark starts a local Vite server, opens Firefox headlessly through Playwright, generates deterministic synthetic WebM samples in-browser, then runs the actual app conversion code and prints `METRIC` lines.
+
+It now covers two realistic first-use scenarios:
+- a short 1s capture where preload overlap is limited
+- a longer 3s capture where recording time hides more initialization work
+
+`cold_transcode_ms` is the average first-conversion wait across those scenarios.
 
 ## Files in Scope
 - `src/utils/videoConverter.ts` — main-thread worker lifecycle / data handoff to FFmpeg worker
@@ -65,6 +71,7 @@ The benchmark starts a local Vite server, opens Firefox headlessly through Playw
 - Major cold-path wins so far:
   - Prewarming the FFmpeg worker/core before conversion cut first-stop latency substantially.
   - Serving `@ffmpeg/core` locally instead of fetching from `unpkg` was another large cold-start win.
+- New benchmark-shaping direction: optimize against both short and longer first-recording scenarios so we do not overfit only to a 3s hold/record overlap window.
 - Current best promising-but-unsettled tweak is MPEG-4 `-bf 0`: one run improved materially, but the confirmation run regressed hard, so treat it as noisy until proven otherwise.
 - Real app nuance: EasyCord starts the camera on mount and recording itself requires a 3-second gesture hold, so prewarming before recording begins is plausibly part of the true user flow rather than a benchmark trick.
 - Probe result: current headless Firefox in this harness exposes no usable direct MP4 path (`VideoEncoder`/`AudioEncoder` unavailable and `MediaRecorder.isTypeSupported('video/mp4') === false`), so FFmpeg remains necessary for now.
