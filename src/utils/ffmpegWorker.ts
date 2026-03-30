@@ -38,6 +38,15 @@ async function loadFFmpeg(): Promise<FFmpeg> {
 self.onmessage = async (event) => {
   const { type, webmData } = event.data;
 
+  if (type === 'preload') {
+    try {
+      await loadFFmpeg();
+    } catch (error) {
+      postMessage({ type: 'log', message: `[FFmpeg Worker] Preload failed: ${error instanceof Error ? error.message : String(error)}` });
+    }
+    return;
+  }
+
   if (type === 'convert') {
     try {
       const ff = await loadFFmpeg();

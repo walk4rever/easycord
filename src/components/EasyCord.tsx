@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { convertWebMToMP4 } from '../utils/videoConverter';
+import { convertWebMToMP4, primeVideoConverter } from '../utils/videoConverter';
 import { GestureManager } from '../utils/gestureManager';
 
 export default function EasyCord() {
@@ -90,6 +90,7 @@ export default function EasyCord() {
     }
     try {
       setRecordingMode('MediaRecorder');
+      void primeVideoConverter();
       const recorder = new MediaRecorder(currentStream, { mimeType, videoBitsPerSecond: 6_000_000 });
       recordedChunksRef.current = [];
       recorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunksRef.current.push(e.data); };

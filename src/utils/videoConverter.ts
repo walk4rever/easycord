@@ -17,6 +17,7 @@
 
 let worker: Worker | null = null;
 let workerLoadPromise: Promise<Worker> | null = null;
+let workerPreloadStarted = false;
 
 async function loadWorker(): Promise<Worker> {
   if (worker) {
@@ -45,6 +46,13 @@ async function loadWorker(): Promise<Worker> {
  * @param onProgress - Optional callback for progress updates
  * @returns MP4 blob
  */
+export async function primeVideoConverter(): Promise<void> {
+  if (workerPreloadStarted) return;
+  const ffmpegWorker = await loadWorker();
+  workerPreloadStarted = true;
+  ffmpegWorker.postMessage({ type: 'preload' });
+}
+
 export async function convertWebMToMP4(
   webmBlob: Blob,
   onProgress?: (message: string) => void

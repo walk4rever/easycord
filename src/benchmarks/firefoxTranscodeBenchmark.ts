@@ -1,4 +1,4 @@
-import { convertWebMToMP4 } from '../utils/videoConverter';
+import { convertWebMToMP4, primeVideoConverter } from '../utils/videoConverter';
 
 declare global {
   interface Window {
@@ -111,6 +111,7 @@ async function measureConversion(webmBlob: Blob) {
 }
 
 async function runBenchmark() {
+  void primeVideoConverter();
   const sample = await recordSyntheticWebM();
   try {
     const cold = await measureConversion(sample.blob);
