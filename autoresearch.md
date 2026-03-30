@@ -31,6 +31,8 @@ It now covers four isolated cold-start scenarios spanning both recording length 
 - long 3s recording with no pre-record gap
 - long 3s recording after a 3s pre-record wait
 
+For the wait-time scenarios, the benchmark now prewarms at "camera ready" time before the simulated 3s hold gap, which better matches the real app lifecycle. Zero-gap scenarios still prewarm only at recording start.
+
 This is meant to reflect both immediate-start flows and the app's real gesture-hold flow without cheating on the conversion path.
 
 `cold_transcode_ms` is the average first-conversion wait across those isolated scenarios.

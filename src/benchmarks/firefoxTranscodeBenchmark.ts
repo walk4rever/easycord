@@ -13,6 +13,7 @@ interface SampleVideo {
 
 const DEFAULT_SAMPLE_DURATION_MS = 3000;
 const DEFAULT_PRE_RECORD_DELAY_MS = 0;
+const DEFAULT_PREWARM_AT_CAMERA_READY = false;
 const WIDTH = 640;
 const HEIGHT = 360;
 const FPS = 30;
@@ -117,13 +118,26 @@ function getNumberParam(name: string, fallback: number): number {
   return Number.isFinite(value) && value >= 0 ? value : fallback;
 }
 
+function getBooleanParam(name: string, fallback: boolean): boolean {
+  const params = new URLSearchParams(window.location.search);
+  const value = params.get(name);
+  if (value === null) return fallback;
+  return value === '1' || value === 'true';
+}
+
 async function runBenchmark() {
   const durationMs = getNumberParam('durationMs', DEFAULT_SAMPLE_DURATION_MS);
   const preRecordDelayMs = getNumberParam('preRecordDelayMs', DEFAULT_PRE_RECORD_DELAY_MS);
+  const prewarmAtCameraReady = getBooleanParam('prewarmAtCameraReady', DEFAULT_PREWARM_AT_CAMERA_READY);
 
-  void primeVideoConverter();
+  if (prewarmAtCameraReady) {
+    void primeVideoConverter();
+  }
   if (preRecordDelayMs > 0) {
     await new Promise((resolve) => setTimeout(resolve, preRecordDelayMs));
+  }
+  if (!prewarmAtCameraReady) {
+    void primeVideoConverter();
   }
 
   const sample = await recordSyntheticWebM(durationMs);
@@ -147,6 +161,7 @@ async function runBenchmark() {
       output_bytes: warmOutputBytes,
       sample_duration_ms: durationMs,
       pre_record_delay_ms: preRecordDelayMs,
+      prewarm_at_camera_ready: prewarmAtCameraReady ? 1 : 0,
       fps: FPS,
       width: WIDTH,
       height: HEIGHT,
