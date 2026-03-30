@@ -12,6 +12,7 @@ interface SampleVideo {
 }
 
 const DEFAULT_SAMPLE_DURATION_MS = 3000;
+const DEFAULT_PRE_RECORD_DELAY_MS = 0;
 const WIDTH = 640;
 const HEIGHT = 360;
 const FPS = 30;
@@ -110,15 +111,21 @@ async function measureConversion(webmBlob: Blob) {
   return { elapsedMs: performance.now() - startedAt, outputBytes: mp4Blob.size };
 }
 
-function getDurationMs(): number {
+function getNumberParam(name: string, fallback: number): number {
   const params = new URLSearchParams(window.location.search);
-  const value = Number(params.get('durationMs'));
-  return Number.isFinite(value) && value > 0 ? value : DEFAULT_SAMPLE_DURATION_MS;
+  const value = Number(params.get(name));
+  return Number.isFinite(value) && value >= 0 ? value : fallback;
 }
 
 async function runBenchmark() {
-  const durationMs = getDurationMs();
+  const durationMs = getNumberParam('durationMs', DEFAULT_SAMPLE_DURATION_MS);
+  const preRecordDelayMs = getNumberParam('preRecordDelayMs', DEFAULT_PRE_RECORD_DELAY_MS);
+
   void primeVideoConverter();
+  if (preRecordDelayMs > 0) {
+    await new Promise((resolve) => setTimeout(resolve, preRecordDelayMs));
+  }
+
   const sample = await recordSyntheticWebM(durationMs);
   try {
     const cold = await measureConversion(sample.blob);
@@ -139,6 +146,7 @@ async function runBenchmark() {
       input_bytes: sample.blob.size,
       output_bytes: warmOutputBytes,
       sample_duration_ms: durationMs,
+      pre_record_delay_ms: preRecordDelayMs,
       fps: FPS,
       width: WIDTH,
       height: HEIGHT,

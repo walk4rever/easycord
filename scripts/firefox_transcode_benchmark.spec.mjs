@@ -1,15 +1,19 @@
 import { test, expect } from 'playwright/test';
 
-const SCENARIO_DURATIONS_MS = [1000, 3000];
-const REPEATS_PER_SCENARIO = 2;
+const SCENARIOS = [
+  { durationMs: 1000, preRecordDelayMs: 0, label: 'short_no_gap' },
+  { durationMs: 1000, preRecordDelayMs: 3000, label: 'short_with_hold' },
+  { durationMs: 3000, preRecordDelayMs: 0, label: 'long_no_gap' },
+  { durationMs: 3000, preRecordDelayMs: 3000, label: 'long_with_hold' },
+];
 
-function median(values) {
-  const sorted = [...values].sort((a, b) => a - b);
-  return sorted[Math.floor(sorted.length / 2)];
-}
+async function runScenario(page, scenario) {
+  const params = new URLSearchParams({
+    durationMs: String(scenario.durationMs),
+    preRecordDelayMs: String(scenario.preRecordDelayMs),
+  });
 
-async function runScenario(page, durationMs) {
-  await page.goto(`/firefox-transcode-benchmark.html?durationMs=${durationMs}`, {
+  await page.goto(`/firefox-transcode-benchmark.html?${params.toString()}`, {
     waitUntil: 'networkidle',
     timeout: 60_000,
   });
@@ -28,36 +32,18 @@ test('Firefox MP4 transcode benchmark', async ({ browser }) => {
   test.setTimeout(420_000);
 
   const scenarioResults = [];
-  for (const durationMs of SCENARIO_DURATIONS_MS) {
-    const repeats = [];
-    for (let repeat = 0; repeat < REPEATS_PER_SCENARIO; repeat += 1) {
-      const context = await browser.newContext();
-      const page = await context.newPage();
-      try {
-        const result = await runScenario(page, durationMs);
-        repeats.push(result);
-      } finally {
-        await context.close();
-      }
+  for (const scenario of SCENARIOS) {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    try {
+      const result = await runScenario(page, scenario);
+      scenarioResults.push({ scenario, result });
+    } finally {
+      await context.close();
     }
-
-    scenarioResults.push({
-      durationMs,
-      result: {
-        cold_transcode_ms: median(repeats.map((result) => Number(result.cold_transcode_ms))),
-        warm_transcode_ms: median(repeats.map((result) => Number(result.warm_transcode_ms))),
-        warm_min_ms: Math.min(...repeats.map((result) => Number(result.warm_min_ms))),
-        warm_max_ms: Math.max(...repeats.map((result) => Number(result.warm_max_ms))),
-        input_bytes: median(repeats.map((result) => Number(result.input_bytes))),
-        output_bytes: median(repeats.map((result) => Number(result.output_bytes))),
-        fps: Number(repeats[0].fps),
-        width: Number(repeats[0].width),
-        height: Number(repeats[0].height),
-      },
-    });
   }
 
-  const byDuration = Object.fromEntries(scenarioResults.map(({ durationMs, result }) => [durationMs, result]));
+  const byLabel = Object.fromEntries(scenarioResults.map(({ scenario, result }) => [scenario.label, result]));
   const coldAverage = scenarioResults.reduce((sum, { result }) => sum + Number(result.cold_transcode_ms), 0) / scenarioResults.length;
   const warmAverage = scenarioResults.reduce((sum, { result }) => sum + Number(result.warm_transcode_ms), 0) / scenarioResults.length;
   const warmMins = scenarioResults.map(({ result }) => Number(result.warm_min_ms));
@@ -68,19 +54,22 @@ test('Firefox MP4 transcode benchmark', async ({ browser }) => {
   const aggregate = {
     cold_transcode_ms: Number(coldAverage.toFixed(3)),
     warm_transcode_ms: Number(warmAverage.toFixed(3)),
-    short_cold_transcode_ms: Number(Number(byDuration[1000].cold_transcode_ms).toFixed(3)),
-    long_cold_transcode_ms: Number(Number(byDuration[3000].cold_transcode_ms).toFixed(3)),
-    short_warm_transcode_ms: Number(Number(byDuration[1000].warm_transcode_ms).toFixed(3)),
-    long_warm_transcode_ms: Number(Number(byDuration[3000].warm_transcode_ms).toFixed(3)),
+    short_no_gap_cold_ms: Number(Number(byLabel.short_no_gap.cold_transcode_ms).toFixed(3)),
+    short_with_hold_cold_ms: Number(Number(byLabel.short_with_hold.cold_transcode_ms).toFixed(3)),
+    long_no_gap_cold_ms: Number(Number(byLabel.long_no_gap.cold_transcode_ms).toFixed(3)),
+    long_with_hold_cold_ms: Number(Number(byLabel.long_with_hold.cold_transcode_ms).toFixed(3)),
+    short_no_gap_warm_ms: Number(Number(byLabel.short_no_gap.warm_transcode_ms).toFixed(3)),
+    short_with_hold_warm_ms: Number(Number(byLabel.short_with_hold.warm_transcode_ms).toFixed(3)),
+    long_no_gap_warm_ms: Number(Number(byLabel.long_no_gap.warm_transcode_ms).toFixed(3)),
+    long_with_hold_warm_ms: Number(Number(byLabel.long_with_hold.warm_transcode_ms).toFixed(3)),
     warm_min_ms: Number(Math.min(...warmMins).toFixed(3)),
     warm_max_ms: Number(Math.max(...warmMaxes).toFixed(3)),
     input_bytes: Number(inputAverage.toFixed(3)),
     output_bytes: Number(outputAverage.toFixed(3)),
     scenario_count: scenarioResults.length,
-    repeats_per_scenario: REPEATS_PER_SCENARIO,
-    fps: Number(byDuration[1000].fps),
-    width: Number(byDuration[1000].width),
-    height: Number(byDuration[1000].height),
+    fps: Number(byLabel.short_no_gap.fps),
+    width: Number(byLabel.short_no_gap.width),
+    height: Number(byLabel.short_no_gap.height),
   };
 
   for (const [name, value] of Object.entries(aggregate)) {

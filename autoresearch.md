@@ -25,13 +25,15 @@ We are optimizing that realistic Firefox-compatible path without cheating on the
 
 The benchmark starts a local Vite server, opens Firefox headlessly through Playwright, generates deterministic synthetic WebM samples in-browser, then runs the actual app conversion code and prints `METRIC` lines.
 
-It now covers two realistic first-use scenarios in isolated browser contexts so each one gets a truly cold FFmpeg worker/core load:
-- a short 1s capture where preload overlap is limited
-- a longer 3s capture where recording time hides more initialization work
+It now covers four isolated cold-start scenarios spanning both recording length and pre-record wait time:
+- short 1s recording with no pre-record gap
+- short 1s recording after a 3s pre-record wait
+- long 3s recording with no pre-record gap
+- long 3s recording after a 3s pre-record wait
 
-Each scenario is repeated twice and aggregated with medians before the final cross-scenario average is reported. This keeps the workload realistic while reducing decision noise.
+This is meant to reflect both immediate-start flows and the app's real gesture-hold flow without cheating on the conversion path.
 
-`cold_transcode_ms` is the average first-conversion wait across those scenario medians.
+`cold_transcode_ms` is the average first-conversion wait across those isolated scenarios.
 
 ## Files in Scope
 - `src/utils/videoConverter.ts` — main-thread worker lifecycle / data handoff to FFmpeg worker
@@ -67,13 +69,18 @@ Each scenario is repeated twice and aggregated with medians before the final cro
   - Removing `+faststart` regressed.
   - Lowering AAC bitrate to `96k` regressed.
   - Removing the forced CFR/timestamp-normalization path caused the benchmark to hang.
-  - Progress/log message reduction did not help.
   - Longer GOP tuning (`-g 300`) regressed.
   - Static `/public` FFmpeg asset paths were not a stable improvement over Vite-served local asset URLs.
+  - `-bf 0` for MPEG-4 is now conclusively a non-win on the median-stabilized benchmark.
+  - Explicit `-threads 1`, fragmented MP4 output, lower probe/analyze limits, and q=8 all regressed on the corrected benchmark.
+  - Coarsening progress updates to 10% buckets regressed badly even after log suppression.
 - Major cold-path wins so far:
   - Prewarming the FFmpeg worker/core before conversion cut first-stop latency substantially.
   - Serving `@ffmpeg/core` locally instead of fetching from `unpkg` was another large cold-start win.
-- New benchmark-shaping direction: optimize against both short and longer first-recording scenarios so we do not overfit only to a 3s hold/record overlap window.
-- Current best promising-but-unsettled tweak is MPEG-4 `-bf 0`: one run improved materially, but the confirmation run regressed hard, so treat it as noisy until proven otherwise.
+  - Having preload do a lightweight `ff.exec(['-version'])` after core load removes additional first-exec initialization cost.
+  - Suppressing FFmpeg banner/log output and removing worker log forwarding produced another moderate cold-start win.
+- Benchmark-shaping status:
+  - The benchmark uses isolated browser contexts so each scenario is truly cold.
+  - It now spans both recording length and pre-record wait time, so we can evaluate zero-gap versus gesture-hold-like flows directly.
 - Real app nuance: EasyCord starts the camera on mount and recording itself requires a 3-second gesture hold, so prewarming before recording begins is plausibly part of the true user flow rather than a benchmark trick.
 - Probe result: current headless Firefox in this harness exposes no usable direct MP4 path (`VideoEncoder`/`AudioEncoder` unavailable and `MediaRecorder.isTypeSupported('video/mp4') === false`), so FFmpeg remains necessary for now.

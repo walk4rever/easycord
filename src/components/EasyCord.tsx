@@ -90,7 +90,6 @@ export default function EasyCord() {
     }
     try {
       setRecordingMode('MediaRecorder');
-      void primeVideoConverter();
       const recorder = new MediaRecorder(currentStream, { mimeType, videoBitsPerSecond: 6_000_000 });
       recordedChunksRef.current = [];
       recorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunksRef.current.push(e.data); };
@@ -234,6 +233,7 @@ export default function EasyCord() {
       setStream(mediaStream);
       setError(null);
       setCameraStatus('ready');
+      void primeVideoConverter();
       const activeVideoDeviceId = mediaStream.getVideoTracks()[0]?.getSettings().deviceId;
       const activeAudioDeviceId = mediaStream.getAudioTracks()[0]?.getSettings().deviceId;
       if (activeVideoDeviceId) setSelectedVideoDeviceId(activeVideoDeviceId);

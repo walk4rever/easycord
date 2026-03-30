@@ -1,4 +1,4 @@
 # Autoresearch ideas
 
-- Consider prewarming the FFmpeg worker/core even earlier in the real app (for example after camera startup rather than only at recording start) if the added background work does not hurt UX.
-- If confidence remains low because of variance, run multiple isolated cold contexts per scenario and aggregate medians to stabilize decisions before further tuning.
+- Add a benchmark variant that reflects the real gesture-driven app flow more closely by including some pre-record idle/gesture-hold time before recording starts, then compare against the zero-gap case so we do not optimize only for one user path.
+- If confidence remains low even after the current per-scenario medians, consider increasing repeats only for the noisiest scenario rather than uniformly making every run slower.
