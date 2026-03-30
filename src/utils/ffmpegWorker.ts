@@ -62,7 +62,7 @@ self.onmessage = async (event) => {
           '-i', 'input.webm',
           '-r', '30',
           '-c:v', 'mpeg4',
-          '-q:v', '6',
+          '-q:v', '8',
           '-c:a', 'aac',
           '-b:a', '128k',
           '-af', 'aresample=async=1', // Sync audio
