@@ -1,14 +1,13 @@
 import { GestureRecognizer, FilesetResolver } from '@mediapipe/tasks-vision';
+import { GestureDecisionEngine } from './gestureDecision';
 
 export class GestureManager {
   private static instance: GestureManager;
   private recognizer: GestureRecognizer | null = null;
+  private readonly decisionEngine = new GestureDecisionEngine(3000);
   private lastGesture: string = 'None';
-  private gestureStartTime: number = 0;
-  private readonly TRIGGER_DURATION = 3000; // 3 seconds in ms
   private lastVideoTimestamp: number = -1;
   private initPromise: Promise<void> | null = null;
-  private hasTriggered: boolean = false; // Prevent multiple triggers for the same hold
 
   private constructor() {}
 
@@ -117,32 +116,13 @@ export class GestureManager {
         currentGesture = result.gestures[0][0].categoryName;
       }
 
-      let progress = 0;
-      let isTriggered = false;
+      this.lastGesture = currentGesture;
 
-      if (currentGesture === this.lastGesture && currentGesture !== 'None') {
-        const duration = timestampMs - this.gestureStartTime;
-        progress = Math.min(duration / this.TRIGGER_DURATION, 1);
-        
-        if (duration >= this.TRIGGER_DURATION) {
-          if (!this.hasTriggered) {
-            isTriggered = true;
-            this.hasTriggered = true;
-          }
-        }
-      } else {
-        this.lastGesture = currentGesture;
-        this.gestureStartTime = timestampMs;
-        this.hasTriggered = false;
-        progress = 0;
-      }
-
-      return { 
-        gesture: currentGesture, 
-        isTriggered, 
+      return this.decisionEngine.process({
+        gesture: currentGesture,
         handDetected,
-        progress
-      };
+        timestampMs,
+      });
     } catch (e) {
       console.warn("[GestureManager] Recognition failed", e);
       return { gesture: 'Error', isTriggered: false, handDetected: false, progress: 0 };
