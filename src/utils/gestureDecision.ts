@@ -55,12 +55,15 @@ export class GestureDecisionEngine {
       this.holdProgressMs = Math.min(this.triggerDurationMs, this.holdProgressMs + deltaMs * MATCH_GAIN);
     } else if (gesture === 'None' || !handDetected) {
       this.pendingGesture = 'None';
+      const isFirstDropoutFrame = this.interruptionStartTime === null;
       if (this.interruptionStartTime === null) {
         this.interruptionStartTime = timestampMs;
       } else if (timestampMs - this.interruptionStartTime > INTERRUPTION_GRACE_MS) {
         this.resetTo('None');
       }
-      this.holdProgressMs = Math.max(0, this.holdProgressMs - deltaMs * NO_HAND_DECAY);
+      if (!isFirstDropoutFrame) {
+        this.holdProgressMs = Math.max(0, this.holdProgressMs - deltaMs * NO_HAND_DECAY);
+      }
     } else {
       if (this.pendingGesture !== gesture) {
         this.pendingGesture = gesture;
