@@ -1,9 +1,9 @@
 import { test, expect } from 'playwright/test';
 
 const SCENARIOS = [
-  { durationMs: 1000, preRecordDelayMs: 0, prewarmAtCameraReady: false, label: 'short_no_gap' },
+  { durationMs: 1000, preRecordDelayMs: 0, prewarmAtCameraReady: true, label: 'short_no_gap' },
   { durationMs: 1000, preRecordDelayMs: 3000, prewarmAtCameraReady: true, label: 'short_with_hold' },
-  { durationMs: 3000, preRecordDelayMs: 0, prewarmAtCameraReady: false, label: 'long_no_gap' },
+  { durationMs: 3000, preRecordDelayMs: 0, prewarmAtCameraReady: true, label: 'long_no_gap' },
   { durationMs: 3000, preRecordDelayMs: 3000, prewarmAtCameraReady: true, label: 'long_with_hold' },
 ];
 
