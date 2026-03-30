@@ -1,6 +1,12 @@
 import { test, expect } from 'playwright/test';
 
 const SCENARIO_DURATIONS_MS = [1000, 3000];
+const REPEATS_PER_SCENARIO = 2;
+
+function median(values) {
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)];
+}
 
 async function runScenario(page, durationMs) {
   await page.goto(`/firefox-transcode-benchmark.html?durationMs=${durationMs}`, {
@@ -19,18 +25,36 @@ async function runScenario(page, durationMs) {
 }
 
 test('Firefox MP4 transcode benchmark', async ({ browser }) => {
-  test.setTimeout(300_000);
+  test.setTimeout(420_000);
 
   const scenarioResults = [];
   for (const durationMs of SCENARIO_DURATIONS_MS) {
-    const context = await browser.newContext();
-    const page = await context.newPage();
-    try {
-      const result = await runScenario(page, durationMs);
-      scenarioResults.push({ durationMs, result });
-    } finally {
-      await context.close();
+    const repeats = [];
+    for (let repeat = 0; repeat < REPEATS_PER_SCENARIO; repeat += 1) {
+      const context = await browser.newContext();
+      const page = await context.newPage();
+      try {
+        const result = await runScenario(page, durationMs);
+        repeats.push(result);
+      } finally {
+        await context.close();
+      }
     }
+
+    scenarioResults.push({
+      durationMs,
+      result: {
+        cold_transcode_ms: median(repeats.map((result) => Number(result.cold_transcode_ms))),
+        warm_transcode_ms: median(repeats.map((result) => Number(result.warm_transcode_ms))),
+        warm_min_ms: Math.min(...repeats.map((result) => Number(result.warm_min_ms))),
+        warm_max_ms: Math.max(...repeats.map((result) => Number(result.warm_max_ms))),
+        input_bytes: median(repeats.map((result) => Number(result.input_bytes))),
+        output_bytes: median(repeats.map((result) => Number(result.output_bytes))),
+        fps: Number(repeats[0].fps),
+        width: Number(repeats[0].width),
+        height: Number(repeats[0].height),
+      },
+    });
   }
 
   const byDuration = Object.fromEntries(scenarioResults.map(({ durationMs, result }) => [durationMs, result]));
@@ -53,6 +77,7 @@ test('Firefox MP4 transcode benchmark', async ({ browser }) => {
     input_bytes: Number(inputAverage.toFixed(3)),
     output_bytes: Number(outputAverage.toFixed(3)),
     scenario_count: scenarioResults.length,
+    repeats_per_scenario: REPEATS_PER_SCENARIO,
     fps: Number(byDuration[1000].fps),
     width: Number(byDuration[1000].width),
     height: Number(byDuration[1000].height),

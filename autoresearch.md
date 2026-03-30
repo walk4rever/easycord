@@ -29,7 +29,9 @@ It now covers two realistic first-use scenarios in isolated browser contexts so 
 - a short 1s capture where preload overlap is limited
 - a longer 3s capture where recording time hides more initialization work
 
-`cold_transcode_ms` is the average first-conversion wait across those scenarios.
+Each scenario is repeated twice and aggregated with medians before the final cross-scenario average is reported. This keeps the workload realistic while reducing decision noise.
+
+`cold_transcode_ms` is the average first-conversion wait across those scenario medians.
 
 ## Files in Scope
 - `src/utils/videoConverter.ts` — main-thread worker lifecycle / data handoff to FFmpeg worker
