@@ -12,9 +12,9 @@ Firefox does not use the native MP4 recording path here, so the user-visible flo
 We are optimizing that realistic Firefox-compatible path without cheating on the benchmark or reducing output quality so aggressively that it stops being a plausible default for users.
 
 ## Metrics
-- **Primary**: `warm_transcode_ms` (ms, lower is better) — median hot-path WebM→MP4 conversion time in headless Firefox after FFmpeg is already loaded
+- **Primary**: `cold_transcode_ms` (ms, lower is better) — first-stop Firefox wait time for the first WebM→MP4 conversion, including worker/core initialization
 - **Secondary**:
-  - `cold_transcode_ms` — first conversion latency including worker/core initialization
+  - `warm_transcode_ms` — median hot-path conversion time after FFmpeg is already loaded
   - `warm_min_ms`
   - `warm_max_ms`
   - `input_bytes`
@@ -50,3 +50,12 @@ The benchmark starts a local Vite server, opens Firefox headlessly through Playw
 ## What's Been Tried
 - Established a real Firefox benchmark harness around the actual browser conversion path instead of guessing from Node-only proxies.
 - A plain Node runner launched via `npx -p playwright node ...` was not viable because the ephemeral package was not resolvable from the script; use Playwright's own test runner / bundled module entrypoints instead.
+- Playwright also could not reliably automate the stock macOS Firefox.app binary here; the harness uses Playwright's managed Firefox build instead.
+- Major warm-path wins so far:
+  - Switched the default Firefox transcode from `libx264` to `mpeg4` while keeping H.264 as fallback; this was a large speedup.
+  - Relaxed MPEG-4 quality from `q=6` → `q=9`; `q=10` regressed.
+  - Replaced Blob cloning + `fetchFile()` with direct `ArrayBuffer` transfer into the worker, shaving off additional overhead.
+- Dead ends / non-wins:
+  - Removing `+faststart` regressed.
+  - Lowering AAC bitrate to `96k` regressed.
+- Current warm-path calibration appears close to a local optimum, so the next promising direction is improving the first-conversion wait time (cold path), especially via prewarming or FFmpeg core loading changes.
