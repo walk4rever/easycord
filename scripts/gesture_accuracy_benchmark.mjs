@@ -74,6 +74,13 @@ function makeScenario(seed, kind, gesture) {
     });
   }
 
+  if (kind === 'alternating_confusion') {
+    const other = TARGET_GESTURES.find((g) => g !== gesture) ?? 'Thumb_Up';
+    pushFrames(frames, 6200, (i) => ((Math.floor(i / 3) % 2 === 0)
+      ? { gesture, handDetected: true }
+      : { gesture: other, handDetected: true }));
+  }
+
   return { name: `${kind}:${gesture}:${seed}`, frames, expected };
 }
 
@@ -116,7 +123,7 @@ function scoreScenario(scenario) {
 const scenarios = [];
 let seed = 1;
 for (const gesture of TARGET_GESTURES) {
-  for (const kind of ['stable_hold_with_brief_noise', 'borderline_hold_with_dropouts', 'false_positive_guard', 'gesture_switch', 'two_frame_spikes']) {
+  for (const kind of ['stable_hold_with_brief_noise', 'borderline_hold_with_dropouts', 'false_positive_guard', 'gesture_switch', 'two_frame_spikes', 'alternating_confusion']) {
     for (let i = 0; i < 12; i += 1) scenarios.push(makeScenario(seed++, kind, gesture));
   }
 }
