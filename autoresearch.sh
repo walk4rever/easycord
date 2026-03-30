@@ -1,3 +1,3 @@
 #!/bin/bash
 set -euo pipefail
-node scripts/gesture_accuracy_benchmark.mjs
+npx playwright test scripts/firefox_transcode_benchmark.spec.mjs --config=playwright.firefox-bench.config.mjs --reporter=line

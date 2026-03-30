@@ -1,44 +1,52 @@
-# Autoresearch: Gesture recognition accuracy
+# Autoresearch: Firefox MP4 transcoding speed
 
 ## Objective
-Improve the app-level accuracy of gesture-triggered recording commands in EasyCord.
-The focus is temporal decision quality on top of MediaPipe outputs: trigger the intended gesture reliably after a sustained hold while resisting brief misclassifications, dropouts, and accidental spikes.
+Improve how quickly EasyCord produces a downloadable MP4 in Firefox after recording stops.
 
-We are **not** changing model weights or cheating with benchmark-specific shortcuts. Any improvement should plausibly help real webcam usage with noisy frame-to-frame predictions.
+Firefox does not use the native MP4 recording path here, so the user-visible flow is:
+1. record WebM with `MediaRecorder`
+2. hand the blob to the FFmpeg web worker
+3. transcode to MP4
+4. return the MP4 blob for download / preview
+
+We are optimizing that realistic Firefox-compatible path without cheating on the benchmark or reducing output quality so aggressively that it stops being a plausible default for users.
 
 ## Metrics
-- **Primary**: `accuracy_score` (unitless, higher is better) — scenario-suite score balancing recall, false positives, and latency.
+- **Primary**: `warm_transcode_ms` (ms, lower is better) — median hot-path WebM→MP4 conversion time in headless Firefox after FFmpeg is already loaded
 - **Secondary**:
-  - `missed_events` — expected gesture holds that failed to trigger
-  - `false_triggers` — accidental triggers in non-hold/noisy scenarios
-  - `avg_latency_penalty_s` — normalized trigger timing error
+  - `cold_transcode_ms` — first conversion latency including worker/core initialization
+  - `warm_min_ms`
+  - `warm_max_ms`
+  - `input_bytes`
+  - `output_bytes`
 
 ## How to Run
 `./autoresearch.sh`
 
-The benchmark simulates noisy frame sequences representing realistic webcam gesture streams and prints structured `METRIC` lines.
+The benchmark starts a local Vite server, opens Firefox headlessly through Playwright, generates a deterministic synthetic WebM sample in-browser, then runs the actual app conversion code and prints `METRIC` lines.
 
 ## Files in Scope
-- `src/utils/gestureManager.ts` — runtime MediaPipe integration and per-frame processing
-- `src/utils/gestureDecision.ts` — pure temporal gesture decision logic shared with benchmark
-- `scripts/gesture_accuracy_benchmark.mjs` — synthetic multi-scenario accuracy benchmark
-- `src/components/EasyCord.tsx` — only if wiring changes are needed
+- `src/utils/videoConverter.ts` — main-thread worker lifecycle / data handoff to FFmpeg worker
+- `src/utils/ffmpegWorker.ts` — FFmpeg loading and conversion command line
+- `src/components/EasyCord.tsx` — recording / conversion wiring if Firefox-specific flow changes are needed
+- `src/utils/webCodecsRecorder.ts` — only if a realistic Firefox-compatible faster path becomes viable
+- `src/benchmarks/firefoxTranscodeBenchmark.ts` — in-browser benchmark workload
+- `firefox-transcode-benchmark.html` — benchmark entry page
+- `scripts/firefox_transcode_benchmark.spec.mjs` — Playwright benchmark test
+- `playwright.firefox-bench.config.mjs` — Playwright benchmark config / local web server setup
 
 ## Off Limits
-- MediaPipe model assets under `public/models/`
-- Browser recording pipeline unrelated to gesture accuracy
-- Benchmark shortcuts that use scenario identity or special-case synthetic seeds
+- MediaPipe gesture model assets in `public/models/`
+- Gesture decision logic unrelated to the Firefox MP4 path
+- Browser-specific hacks that special-case the benchmark page instead of improving the real conversion path
 
 ## Constraints
-- Do not overfit to benchmark-specific quirks
-- Keep behavior plausible for real user webcam noise
+- Keep behavior plausible for real Firefox users
+- Do not cheat on the benchmark workload
 - `npm run build` must pass
 - No new dependencies unless clearly justified
+- Prefer improvements that also help real stop-to-download latency, not just synthetic internals
 
 ## What's Been Tried
-- Extracted a pure `GestureDecisionEngine` matching the current hold-for-3s behavior so benchmark and app logic can stay aligned.
-- Built a scenario suite with noisy sustained holds, dropout-heavy borderline holds, gesture switching, and false-positive guards.
-- Added temporal smoothing via short grace windows for brief `None` dropouts and very short wrong-gesture blips; this greatly improved hold recall.
-- Fixed an output-alignment bug where the engine could trigger based on the stabilized gesture while still returning the raw instantaneous label to the app.
-- New concern discovered: rapid oscillation between two gestures can still look like a sustained hold if the logic never fully abandons the active gesture. The benchmark was expanded with an adversarial alternating-gesture scenario to avoid overfitting to easy noise.
-- Another realistic gap surfaced during probing: a true sustained hold can be punctuated by short 100–130ms bursts of the wrong gesture. The benchmark should include this so the loop optimizes for real classifier blips, not just `None` dropouts.
+- Established a real Firefox benchmark harness around the actual browser conversion path instead of guessing from Node-only proxies.
+- A plain Node runner launched via `npx -p playwright node ...` was not viable because the ephemeral package was not resolvable from the script; use Playwright's own test runner / bundled module entrypoints instead.
