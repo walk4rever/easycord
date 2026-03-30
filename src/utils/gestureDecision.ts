@@ -62,12 +62,14 @@ export class GestureDecisionEngine {
       }
       this.holdProgressMs = Math.max(0, this.holdProgressMs - deltaMs * NO_HAND_DECAY);
     } else {
-      this.holdProgressMs = Math.max(0, this.holdProgressMs - deltaMs * WRONG_GESTURE_DECAY);
       if (this.pendingGesture !== gesture) {
         this.pendingGesture = gesture;
         this.interruptionStartTime = timestampMs;
-      } else if (this.interruptionStartTime !== null && timestampMs - this.interruptionStartTime > WRONG_GESTURE_GRACE_MS) {
-        this.resetTo(gesture);
+      } else {
+        this.holdProgressMs = Math.max(0, this.holdProgressMs - deltaMs * WRONG_GESTURE_DECAY);
+        if (this.interruptionStartTime !== null && timestampMs - this.interruptionStartTime > WRONG_GESTURE_GRACE_MS) {
+          this.resetTo(gesture);
+        }
       }
     }
 
