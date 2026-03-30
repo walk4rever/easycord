@@ -61,9 +61,8 @@ self.onmessage = async (event) => {
           '-avoid_negative_ts', 'make_zero',
           '-i', 'input.webm',
           '-r', '30',
-          '-c:v', 'libx264',
-          '-preset', 'ultrafast',
-          '-crf', '26',
+          '-c:v', 'mpeg4',
+          '-q:v', '6',
           '-c:a', 'aac',
           '-b:a', '128k',
           '-af', 'aresample=async=1', // Sync audio
@@ -72,13 +71,17 @@ self.onmessage = async (event) => {
           'output.mp4'
         ]);
       } catch {
-        postMessage({ type: 'log', message: `[FFmpeg Worker] Primary conversion failed, trying robust fallback...` });
+        postMessage({ type: 'log', message: `[FFmpeg Worker] Primary conversion failed, trying H.264 fallback...` });
         await ff.exec([
+          '-fflags', '+genpts+igndts',
+          '-avoid_negative_ts', 'make_zero',
           '-i', 'input.webm',
           '-r', '30',
-          '-c:v', 'mpeg4',
-          '-q:v', '6',
+          '-c:v', 'libx264',
+          '-preset', 'ultrafast',
+          '-crf', '26',
           '-c:a', 'aac',
+          '-b:a', '128k',
           '-af', 'aresample=async=1',
           '-movflags', '+faststart',
           '-vsync', 'cfr',
