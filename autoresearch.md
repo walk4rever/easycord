@@ -40,4 +40,5 @@ The benchmark simulates noisy frame sequences representing realistic webcam gest
 - Built a scenario suite with noisy sustained holds, dropout-heavy borderline holds, gesture switching, and false-positive guards.
 - Added temporal smoothing via short grace windows for brief `None` dropouts and very short wrong-gesture blips; this greatly improved hold recall.
 - Fixed an output-alignment bug where the engine could trigger based on the stabilized gesture while still returning the raw instantaneous label to the app.
-- New concern discovered: rapid oscillation between two gestures can still look like a sustained hold if the logic never fully abandons the active gesture. The benchmark now needs an adversarial alternating-gesture scenario so we don't overfit to easy noise.
+- New concern discovered: rapid oscillation between two gestures can still look like a sustained hold if the logic never fully abandons the active gesture. The benchmark was expanded with an adversarial alternating-gesture scenario to avoid overfitting to easy noise.
+- Another realistic gap surfaced during probing: a true sustained hold can be punctuated by short 100–130ms bursts of the wrong gesture. The benchmark should include this so the loop optimizes for real classifier blips, not just `None` dropouts.

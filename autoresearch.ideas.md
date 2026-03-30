@@ -1,0 +1,2 @@
+- Use MediaPipe gesture category scores / confidence margins (if available from `result.gestures`) to weight evidence updates instead of treating all non-None frames equally.
+- Tune evidence parameters per gesture (`Thumb_Up`, `Closed_Fist`, `Open_Palm`) if real-world testing shows one gesture is noisier than the others.

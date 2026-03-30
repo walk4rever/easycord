@@ -81,6 +81,17 @@ function makeScenario(seed, kind, gesture) {
       : { gesture: other, handDetected: true }));
   }
 
+  if (kind === 'bursty_wrong_gesture_during_hold') {
+    const other = TARGET_GESTURES.find((g) => g !== gesture) ?? 'Thumb_Up';
+    pushFrames(frames, 700, () => ({ gesture: 'None', handDetected: false }));
+    pushFrames(frames, 3900, (i) => {
+      const cycle = i % 24;
+      if (cycle >= 10 && cycle <= 13) return { gesture: other, handDetected: true };
+      return { gesture, handDetected: true };
+    });
+    expected.push({ gesture, earliestMs: 3300, latestMs: 4900 });
+  }
+
   return { name: `${kind}:${gesture}:${seed}`, frames, expected };
 }
 
@@ -123,7 +134,7 @@ function scoreScenario(scenario) {
 const scenarios = [];
 let seed = 1;
 for (const gesture of TARGET_GESTURES) {
-  for (const kind of ['stable_hold_with_brief_noise', 'borderline_hold_with_dropouts', 'false_positive_guard', 'gesture_switch', 'two_frame_spikes', 'alternating_confusion']) {
+  for (const kind of ['stable_hold_with_brief_noise', 'borderline_hold_with_dropouts', 'false_positive_guard', 'gesture_switch', 'two_frame_spikes', 'alternating_confusion', 'bursty_wrong_gesture_during_hold']) {
     for (let i = 0; i < 12; i += 1) scenarios.push(makeScenario(seed++, kind, gesture));
   }
 }
