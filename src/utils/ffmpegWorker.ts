@@ -1,8 +1,12 @@
 // easycord/src/utils/ffmpegWorker.ts
 
+/// <reference lib="webworker" />
+
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import ffmpegCoreURL from '@ffmpeg/core?url';
 import ffmpegWasmURL from '@ffmpeg/core/wasm?url';
+
+const workerScope = self as DedicatedWorkerGlobalScope;
 
 let ffmpeg: FFmpeg | null = null;
 let isLoading = false;
@@ -102,8 +106,9 @@ self.onmessage = async (event) => {
       await ff.deleteFile('input.webm');
       await ff.deleteFile('output.mp4');
 
-      const mp4Blob = new Blob([new Uint8Array(mp4Data as Uint8Array)], { type: 'video/mp4' });
-      postMessage({ type: 'result', mp4Blob: mp4Blob });
+      const mp4Bytes = new Uint8Array(mp4Data as Uint8Array);
+      const mp4Buffer = mp4Bytes.buffer.slice(mp4Bytes.byteOffset, mp4Bytes.byteOffset + mp4Bytes.byteLength);
+      workerScope.postMessage({ type: 'result', mp4Data: mp4Buffer }, [mp4Buffer]);
     } catch (error) {
       postMessage({ type: 'error', message: `Conversion failed: ${error instanceof Error ? error.message : String(error)}` });
     }

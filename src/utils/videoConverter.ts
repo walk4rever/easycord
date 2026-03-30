@@ -61,7 +61,7 @@ export async function convertWebMToMP4(
 
   return new Promise((resolve, reject) => {
     ffmpegWorker.onmessage = (event) => {
-      const { type, message, mp4Blob } = event.data;
+      const { type, message, mp4Blob, mp4Data } = event.data;
       if (type === 'progress') {
         onProgress?.(message);
       } else if (type === 'log') {
@@ -70,12 +70,12 @@ export async function convertWebMToMP4(
         console.error('[videoConverter] Worker Error:', message);
         reject(new Error(message));
       } else if (type === 'result') {
-        // mp4Blob is actually a Transferable here (ArrayBuffer or similar), needs to be Blob-ified
-        if (!(mp4Blob instanceof Blob)) {
-            const resultBlob = new Blob([mp4Blob], { type: 'video/mp4' });
-            resolve(resultBlob);
+        if (mp4Data instanceof ArrayBuffer) {
+          resolve(new Blob([mp4Data], { type: 'video/mp4' }));
+        } else if (mp4Blob instanceof Blob) {
+          resolve(mp4Blob);
         } else {
-            resolve(mp4Blob);
+          resolve(new Blob([mp4Blob], { type: 'video/mp4' }));
         }
         ffmpegWorker.onmessage = null; // Clean up listener
       }
