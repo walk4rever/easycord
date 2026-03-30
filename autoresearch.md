@@ -25,7 +25,7 @@ We are optimizing that realistic Firefox-compatible path without cheating on the
 
 The benchmark starts a local Vite server, opens Firefox headlessly through Playwright, generates deterministic synthetic WebM samples in-browser, then runs the actual app conversion code and prints `METRIC` lines.
 
-It now covers two realistic first-use scenarios:
+It now covers two realistic first-use scenarios in isolated browser contexts so each one gets a truly cold FFmpeg worker/core load:
 - a short 1s capture where preload overlap is limited
 - a longer 3s capture where recording time hides more initialization work
 
