@@ -1,7 +1,8 @@
 // easycord/src/utils/ffmpegWorker.ts
 
 import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { toBlobURL } from '@ffmpeg/util';
+import ffmpegCoreURL from '@ffmpeg/core?url';
+import ffmpegWasmURL from '@ffmpeg/core/wasm?url';
 
 let ffmpeg: FFmpeg | null = null;
 let isLoading = false;
@@ -21,10 +22,9 @@ async function loadFFmpeg(): Promise<FFmpeg> {
     });
 
     try {
-      const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
       await ffmpeg.load({
-        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+        coreURL: ffmpegCoreURL,
+        wasmURL: ffmpegWasmURL,
       });
     } catch (error) {
       isLoading = false; loadPromise = null; throw error;
