@@ -13,37 +13,54 @@ export type GestureDecisionOutput = {
   progress: number;
 };
 
+const INTERRUPTION_GRACE_MS = 220;
+
 export class GestureDecisionEngine {
-  private lastGesture: GestureName = 'None';
+  private activeGesture: GestureName = 'None';
   private gestureStartTime = 0;
   private readonly triggerDurationMs: number;
   private hasTriggered = false;
+  private interruptionStartTime: number | null = null;
 
   constructor(triggerDurationMs = 3000) {
     this.triggerDurationMs = triggerDurationMs;
   }
 
+  private resetTo(gesture: GestureName, timestampMs: number) {
+    this.activeGesture = gesture;
+    this.gestureStartTime = timestampMs;
+    this.hasTriggered = false;
+    this.interruptionStartTime = null;
+  }
+
   process(input: GestureDecisionInput): GestureDecisionOutput {
     const { gesture, handDetected, timestampMs } = input;
+
+    if (this.activeGesture === 'None') {
+      this.resetTo(gesture, timestampMs);
+    } else if (gesture === this.activeGesture) {
+      this.interruptionStartTime = null;
+    } else if (gesture === 'None' || !handDetected) {
+      if (this.interruptionStartTime === null) {
+        this.interruptionStartTime = timestampMs;
+      } else if (timestampMs - this.interruptionStartTime > INTERRUPTION_GRACE_MS) {
+        this.resetTo('None', timestampMs);
+      }
+    } else {
+      this.resetTo(gesture, timestampMs);
+    }
 
     let progress = 0;
     let isTriggered = false;
 
-    if (gesture === this.lastGesture && gesture !== 'None') {
-      const duration = timestampMs - this.gestureStartTime;
-      progress = Math.min(duration / this.triggerDurationMs, 1);
+    if (this.activeGesture !== 'None') {
+      const heldDuration = timestampMs - this.gestureStartTime;
+      progress = Math.min(heldDuration / this.triggerDurationMs, 1);
 
-      if (duration >= this.triggerDurationMs) {
-        if (!this.hasTriggered) {
-          isTriggered = true;
-          this.hasTriggered = true;
-        }
+      if (heldDuration >= this.triggerDurationMs && !this.hasTriggered) {
+        isTriggered = true;
+        this.hasTriggered = true;
       }
-    } else {
-      this.lastGesture = gesture;
-      this.gestureStartTime = timestampMs;
-      this.hasTriggered = false;
-      progress = 0;
     }
 
     return {
