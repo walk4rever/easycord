@@ -58,5 +58,13 @@ The benchmark starts a local Vite server, opens Firefox headlessly through Playw
 - Dead ends / non-wins:
   - Removing `+faststart` regressed.
   - Lowering AAC bitrate to `96k` regressed.
-- Current warm-path calibration appears close to a local optimum, so the next promising direction is improving the first-conversion wait time (cold path), especially via prewarming or FFmpeg core loading changes.
+  - Removing the forced CFR/timestamp-normalization path caused the benchmark to hang.
+  - Progress/log message reduction did not help.
+  - Longer GOP tuning (`-g 300`) regressed.
+  - Static `/public` FFmpeg asset paths were not a stable improvement over Vite-served local asset URLs.
+- Major cold-path wins so far:
+  - Prewarming the FFmpeg worker/core before conversion cut first-stop latency substantially.
+  - Serving `@ffmpeg/core` locally instead of fetching from `unpkg` was another large cold-start win.
+- Current best promising-but-unsettled tweak is MPEG-4 `-bf 0`: one run improved materially, but the confirmation run regressed hard, so treat it as noisy until proven otherwise.
 - Real app nuance: EasyCord starts the camera on mount and recording itself requires a 3-second gesture hold, so prewarming before recording begins is plausibly part of the true user flow rather than a benchmark trick.
+- Probe result: current headless Firefox in this harness exposes no usable direct MP4 path (`VideoEncoder`/`AudioEncoder` unavailable and `MediaRecorder.isTypeSupported('video/mp4') === false`), so FFmpeg remains necessary for now.
