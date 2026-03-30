@@ -46,7 +46,7 @@ self.onmessage = async (event) => {
     try {
       const ff = await loadFFmpeg();
       if (!preloadExecPromise) {
-        preloadExecPromise = ff.exec(['-nostdin', '-hide_banner', '-loglevel', 'error', '-version']).then(() => undefined);
+        preloadExecPromise = ff.exec(['-nostdin', '-y', '-hide_banner', '-loglevel', 'error', '-version']).then(() => undefined);
       }
       await preloadExecPromise;
     } catch (error) {
@@ -74,6 +74,7 @@ self.onmessage = async (event) => {
       try {
         await ff.exec([
           '-nostdin',
+          '-y',
           '-hide_banner',
           '-loglevel', 'error',
           '-fflags', '+genpts+igndts',
@@ -93,6 +94,7 @@ self.onmessage = async (event) => {
         postMessage({ type: 'log', message: `[FFmpeg Worker] Primary conversion failed, trying H.264 fallback...` });
         await ff.exec([
           '-nostdin',
+          '-y',
           '-hide_banner',
           '-loglevel', 'error',
           '-fflags', '+genpts+igndts',
