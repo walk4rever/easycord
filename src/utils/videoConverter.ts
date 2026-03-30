@@ -79,11 +79,12 @@ export async function convertWebMToMP4(
       ffmpegWorker.onmessage = null; // Clean up listener
     };
 
-    // Post message to worker to start conversion.
-    // For Blobs, postMessage usually clones them automatically if not in transfer list.
-    // However, for efficiency, if we deal with ArrayBuffer, we should transfer.
-    // The webmBlob itself is not directly transferable; its underlying ArrayBuffer is.
-    // Let's send the Blob directly and let it be cloned.
-    ffmpegWorker.postMessage({ type: 'convert', webmBlob: webmBlob });
+    webmBlob.arrayBuffer()
+      .then((webmData) => {
+        ffmpegWorker.postMessage({ type: 'convert', webmData }, [webmData]);
+      })
+      .catch((error) => {
+        reject(error instanceof Error ? error : new Error(String(error)));
+      });
   });
 }

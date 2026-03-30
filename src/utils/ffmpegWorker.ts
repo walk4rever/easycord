@@ -1,7 +1,7 @@
 // easycord/src/utils/ffmpegWorker.ts
 
 import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { fetchFile, toBlobURL } from '@ffmpeg/util';
+import { toBlobURL } from '@ffmpeg/util';
 
 let ffmpeg: FFmpeg | null = null;
 let isLoading = false;
@@ -36,15 +36,14 @@ async function loadFFmpeg(): Promise<FFmpeg> {
 }
 
 self.onmessage = async (event) => {
-  const { type, webmBlob } = event.data;
+  const { type, webmData } = event.data;
 
   if (type === 'convert') {
     try {
       const ff = await loadFFmpeg();
       postMessage({ type: 'progress', message: 'Preparing video...' });
 
-      const webmData = await fetchFile(webmBlob);
-      await ff.writeFile('input.webm', webmData);
+      await ff.writeFile('input.webm', new Uint8Array(webmData));
 
       postMessage({ type: 'progress', message: 'Converting to MP4...' });
 
