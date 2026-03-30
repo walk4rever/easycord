@@ -73,8 +73,10 @@ export class GestureDecisionEngine {
       }
     }
 
+    const outputGesture = this.activeGesture !== 'None' ? this.activeGesture : gesture;
+
     return {
-      gesture,
+      gesture: outputGesture,
       isTriggered,
       handDetected,
       progress,
