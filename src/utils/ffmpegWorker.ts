@@ -20,7 +20,6 @@ async function loadFFmpeg(): Promise<FFmpeg> {
   isLoading = true;
   loadPromise = (async () => {
     ffmpeg = new FFmpeg();
-    ffmpeg.on('log', ({ message }) => postMessage({ type: 'log', message: `[FFmpeg Worker] ${message}` }));
     ffmpeg.on('progress', ({ progress }) => {
       const percent = Math.round(Math.max(0, Math.min(1, progress)) * 100);
       postMessage({ type: 'progress', message: `Converting: ${percent}%` });
@@ -47,7 +46,7 @@ self.onmessage = async (event) => {
     try {
       const ff = await loadFFmpeg();
       if (!preloadExecPromise) {
-        preloadExecPromise = ff.exec(['-version']).then(() => undefined);
+        preloadExecPromise = ff.exec(['-hide_banner', '-loglevel', 'error', '-version']).then(() => undefined);
       }
       await preloadExecPromise;
     } catch (error) {
@@ -74,6 +73,8 @@ self.onmessage = async (event) => {
        */
       try {
         await ff.exec([
+          '-hide_banner',
+          '-loglevel', 'error',
           '-fflags', '+genpts+igndts',
           '-avoid_negative_ts', 'make_zero',
           '-i', 'input.webm',
@@ -90,6 +91,8 @@ self.onmessage = async (event) => {
       } catch {
         postMessage({ type: 'log', message: `[FFmpeg Worker] Primary conversion failed, trying H.264 fallback...` });
         await ff.exec([
+          '-hide_banner',
+          '-loglevel', 'error',
           '-fflags', '+genpts+igndts',
           '-avoid_negative_ts', 'make_zero',
           '-i', 'input.webm',
