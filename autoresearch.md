@@ -59,3 +59,4 @@ The benchmark starts a local Vite server, opens Firefox headlessly through Playw
   - Removing `+faststart` regressed.
   - Lowering AAC bitrate to `96k` regressed.
 - Current warm-path calibration appears close to a local optimum, so the next promising direction is improving the first-conversion wait time (cold path), especially via prewarming or FFmpeg core loading changes.
+- Real app nuance: EasyCord starts the camera on mount and recording itself requires a 3-second gesture hold, so prewarming before recording begins is plausibly part of the true user flow rather than a benchmark trick.

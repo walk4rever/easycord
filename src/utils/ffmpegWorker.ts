@@ -70,6 +70,7 @@ self.onmessage = async (event) => {
           '-i', 'input.webm',
           '-r', '30',
           '-c:v', 'mpeg4',
+          '-bf', '0',
           '-q:v', '9',
           '-c:a', 'aac',
           '-b:a', '128k',
