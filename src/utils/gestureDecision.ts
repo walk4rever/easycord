@@ -15,8 +15,8 @@ export type GestureDecisionOutput = {
 
 const INTERRUPTION_GRACE_MS = 220;
 const WRONG_GESTURE_GRACE_MS = 110;
-const MATCH_GAIN = 1.1;
-const NO_HAND_DECAY = 0.2;
+const MATCH_GAIN = 1.095;
+const NO_HAND_DECAY = 0.15;
 const WRONG_GESTURE_DECAY = 0.2;
 
 export class GestureDecisionEngine {
